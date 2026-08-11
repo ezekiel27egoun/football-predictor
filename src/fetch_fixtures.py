@@ -28,13 +28,17 @@ def load_team_mapping():
     return mapping
 
 
-def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5):
+def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5, status=None):
     """
     date_from / date_to : "YYYY-MM-DD"
     sleep_seconds : pause entre les 6 appels (une par compétition) pour
     respecter le quota gratuit (10 requêtes/minute).
+    status : None -> tous les statuts (matchs passés ET à venir dans la
+    plage) ; sinon "SCHEDULED", "FINISHED"... pour filtrer côté API.
     Retourne un DataFrame : date, league, season, home_team, away_team,
-    home_team_known, away_team_known (bool -> False si équipe sans historique)
+    home_team_known, away_team_known (bool -> False si équipe sans historique),
+    status, home_score, away_score (ces deux derniers NaN tant que le match
+    n'est pas terminé).
     """
     mapping = load_team_mapping()
     rows = []
@@ -42,7 +46,7 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5):
     for i, (league_name, code) in enumerate(COMPETITIONS.items()):
         if i > 0:
             time.sleep(sleep_seconds)
-        matches = get_matches(code, status="SCHEDULED", date_from=date_from, date_to=date_to)
+        matches = get_matches(code, status=status, date_from=date_from, date_to=date_to)
         for m in matches:
             home_api_name = m["homeTeam"]["name"]
             away_api_name = m["awayTeam"]["name"]
@@ -55,6 +59,8 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5):
                 # (nouvelle équipe jamais vue par build_team_mapping.py)
                 print(f"ATTENTION : équipe non trouvée dans le mapping -> "
                       f"{home_api_name if home_hist is None else away_api_name} ({league_name})")
+
+            full_time = m.get("score", {}).get("fullTime", {})
 
             # home_hist / away_hist : "" (mappé mais sans historique) ou None
             # (absent du mapping, ne devrait pas arriver) -> dans les deux cas
@@ -72,6 +78,9 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5):
                 "home_team_known": bool(home_hist),
                 "away_team_known": bool(away_hist),
                 "matchday": m.get("matchday"),
+                "status": m.get("status"),
+                "home_score": full_time.get("home"),
+                "away_score": full_time.get("away"),
             })
 
     df = pd.DataFrame(rows)

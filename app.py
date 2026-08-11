@@ -108,11 +108,24 @@ STYLE = """
 .fp-pill.strong { background: color-mix(in srgb, var(--home) 16%, transparent); color: var(--home); }
 .fp-pill.mid { background: color-mix(in srgb, var(--draw) 16%, transparent); color: var(--draw); }
 .fp-pill.open { background: var(--page-plane); color: var(--text-muted); border: 1px solid var(--border); }
+.fp-pill.played { background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
 .fp-teams-row { display:flex; align-items:center; justify-content:space-between; margin-bottom: 6px; }
 .fp-team.favored { color: var(--favored-color, var(--text-primary)); }
+
+.fp-score { font: 700 20px/1; color: var(--text-primary); padding: 0 10px;
+  font-variant-numeric: tabular-nums; }
+
+.fp-week-nav { display:flex; align-items:center; gap:14px; margin: 0 0 18px 0; }
+.fp-week-label { font: 600 15px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary); min-width: 220px; text-align:center; }
 </style>
 """
 st.markdown(STYLE, unsafe_allow_html=True)
+
+# Fenêtre large fetchée UNE SEULE FOIS (mise en cache 1h) : navigation ensuite
+# instantanée d'une semaine à l'autre, sans re-solliciter l'API à chaque clic.
+WINDOW_PAST_DAYS = 200   # ~toute la saison en cours en arrière
+WINDOW_FUTURE_DAYS = 90
 
 
 @st.cache_data(ttl=3600)  # 1h de cache -> évite de re-solliciter l'API à chaque interaction
@@ -134,21 +147,45 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col1, col2, col3 = st.columns([2, 2, 3])
-with col1:
-    date_from = st.date_input("Du", value=date.today())
-with col2:
-    date_to = st.date_input("Au", value=date.today() + timedelta(days=7))
+# --- Navigation par semaine (flèches) ---
+# anchor_monday = lundi de la semaine affichée, gardé en session pour ne pas
+# re-fetcher l'API à chaque clic (le fetch large est mis en cache 1h).
+today = date.today()
+if "anchor_monday" not in st.session_state:
+    st.session_state.anchor_monday = today - timedelta(days=today.weekday())
 
-with st.spinner("Récupération des matchs à venir et calcul des probabilités..."):
-    df = get_predictions(date_from, date_to)
+nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
+with nav_prev:
+    if st.button("◀ Semaine précédente", use_container_width=True):
+        st.session_state.anchor_monday -= timedelta(days=7)
+with nav_next:
+    if st.button("Semaine suivante ▶", use_container_width=True):
+        st.session_state.anchor_monday += timedelta(days=7)
+with nav_today:
+    if st.button("Aujourd'hui", use_container_width=True):
+        st.session_state.anchor_monday = today - timedelta(days=today.weekday())
 
-if df.empty:
-    st.info("Aucun match programmé sur cette période pour les compétitions suivies.")
+week_start = st.session_state.anchor_monday
+week_end = week_start + timedelta(days=6)
+with nav_label:
+    st.markdown(
+        f'<div class="fp-week-label">{week_start.strftime("%d %b").capitalize()} '
+        f'→ {week_end.strftime("%d %b %Y").capitalize()}</div>',
+        unsafe_allow_html=True,
+    )
+
+with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"):
+    df_wide = get_predictions(today - timedelta(days=WINDOW_PAST_DAYS), today + timedelta(days=WINDOW_FUTURE_DAYS))
+
+if df_wide.empty:
+    st.info("Aucun match trouvé pour les compétitions suivies.")
     st.stop()
 
+df = df_wide[(df_wide["date"] >= pd.Timestamp(week_start)) & (df_wide["date"] <= pd.Timestamp(week_end))]
+
+col3, = st.columns([1])
 with col3:
-    available_leagues = [lg for lg in LEAGUE_LABELS if lg in df["league"].unique()]
+    available_leagues = [lg for lg in LEAGUE_LABELS if lg in df_wide["league"].unique()]
     selected_leagues = st.multiselect(
         "Compétitions",
         options=available_leagues,
@@ -158,7 +195,7 @@ with col3:
 
 df = df[df["league"].isin(selected_leagues)]
 if df.empty:
-    st.info("Aucun match pour les compétitions sélectionnées sur cette période.")
+    st.info("Aucun match cette semaine pour les compétitions sélectionnées.")
     st.stop()
 
 search = st.text_input("🔎 Rechercher une équipe", placeholder="ex : Marseille, Real Madrid…")
@@ -172,15 +209,19 @@ if search:
         st.info(f"Aucun match trouvé pour « {search} » sur cette sélection.")
         st.stop()
 
-max_proba = df[["proba_H", "proba_D", "proba_A"]].max(axis=1)
+df_upcoming = df[df["status"] != "FINISHED"]
+df_played = df[df["status"] == "FINISHED"]
+max_proba = df_upcoming[["proba_H", "proba_D", "proba_A"]].max(axis=1)
 nb_favoris = int((max_proba >= 0.55).sum())
+confiance_moyenne = f"{max_proba.mean() * 100:.0f}%" if not df_upcoming.empty else "—"
 st.markdown(
     f"""
     <div class="fp-kpis">
-      <div class="fp-kpi"><div class="v">{len(df)}</div><div class="l">Matchs à venir</div></div>
+      <div class="fp-kpi"><div class="v">{len(df_upcoming)}</div><div class="l">Matchs à venir</div></div>
+      <div class="fp-kpi"><div class="v">{len(df_played)}</div><div class="l">Matchs joués</div></div>
       <div class="fp-kpi"><div class="v">{df['league'].nunique()}</div><div class="l">Compétitions</div></div>
       <div class="fp-kpi"><div class="v">{nb_favoris}</div><div class="l">Favoris nets (≥ 55%)</div></div>
-      <div class="fp-kpi"><div class="v">{max_proba.mean() * 100:.0f}%</div><div class="l">Confiance moyenne</div></div>
+      <div class="fp-kpi"><div class="v">{confiance_moyenne}</div><div class="l">Confiance moyenne</div></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -211,6 +252,37 @@ for match_date in sorted(df["date"].unique()):
             away_new = "" if row["away_team_known"] else '<span class="fp-new">nouveau</span>'
             home_crest = row.get("home_crest", "")
             away_crest = row.get("away_crest", "")
+
+            if row["status"] == "FINISHED":
+                # Match déjà joué -> score réel, pas de prédiction (inutile)
+                h_score, a_score = int(row["home_score"]), int(row["away_score"])
+                if h_score > a_score:
+                    home_cls, away_cls, home_style, away_style = "fp-team favored", "fp-team", ' style="--favored-color:var(--home)"', ""
+                elif a_score > h_score:
+                    home_cls, away_cls, home_style, away_style = "fp-team", "fp-team favored", "", ' style="--favored-color:var(--away)"'
+                else:
+                    home_cls, away_cls, home_style, away_style = "fp-team", "fp-team", "", ""
+
+                card = f"""
+                <div class="fp-card">
+                  <div class="fp-teams-row">
+                    <span class="fp-pill played">Terminé</span>
+                  </div>
+                  <div class="fp-teams">
+                    <div class="{home_cls}"{home_style}>
+                      {f'<img src="{home_crest}">' if home_crest else ""}
+                      {row['home_team_api']}{home_new}
+                    </div>
+                    <div class="fp-score">{h_score} - {a_score}</div>
+                    <div class="{away_cls}"{away_style}>
+                      {row['away_team_api']}{away_new}
+                      {f'<img src="{away_crest}">' if away_crest else ""}
+                    </div>
+                  </div>
+                </div>
+                """
+                st.markdown(card, unsafe_allow_html=True)
+                continue
 
             pct_h, pct_d, pct_a = row["proba_H"] * 100, row["proba_D"] * 100, row["proba_A"] * 100
 

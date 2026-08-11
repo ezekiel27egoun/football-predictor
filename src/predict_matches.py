@@ -56,17 +56,42 @@ def build_phantom_rows(fixtures_df):
     return phantom
 
 
+OUTPUT_COLS = [
+    "date", "league", "matchday", "home_team_api", "away_team_api",
+    "home_crest", "away_crest", "home_team_known", "away_team_known",
+    "status", "home_score", "away_score",
+    "proba_H", "proba_D", "proba_A",
+]
+
+
 def predict_upcoming_matches(date_from, date_to):
-    """Retourne un DataFrame : les matchs à venir + probabilités H/D/A."""
+    """
+    Retourne un DataFrame pour tous les matchs (passés ET à venir) de la
+    plage demandée :
+    - matchs déjà joués (status == "FINISHED") -> score réel renseigné,
+      proba_* à NaN (inutile de prédire un résultat déjà connu)
+    - matchs pas encore joués -> proba_* calculées par le modèle, score
+      à NaN
+    """
     model = joblib.load(MODEL_PATH)
     feature_cols = joblib.load(FEATURE_COLS_PATH)
 
-    fixtures_df = get_upcoming_fixtures(date_from, date_to)
+    fixtures_df = get_upcoming_fixtures(date_from, date_to, status=None)
     if fixtures_df.empty:
         return fixtures_df
 
+    played_mask = fixtures_df["status"] == "FINISHED"
+    df_played = fixtures_df[played_mask].copy()
+    df_to_predict = fixtures_df[~played_mask].copy()
+
+    for c in ("proba_H", "proba_D", "proba_A"):
+        df_played[c] = np.nan
+
+    if df_to_predict.empty:
+        return df_played[OUTPUT_COLS].sort_values(["date", "league"])
+
     df_hist = pd.read_csv(HISTORICAL_DATA_PATH, parse_dates=["date"])
-    phantom_rows = build_phantom_rows(fixtures_df)
+    phantom_rows = build_phantom_rows(df_to_predict)
 
     df_extended = pd.concat([df_hist, phantom_rows], ignore_index=True)
     df_extended["date"] = pd.to_datetime(df_extended["date"])
@@ -76,8 +101,9 @@ def predict_upcoming_matches(date_from, date_to):
 
     # On ne garde que les lignes fantômes qu'on vient d'ajouter (les matchs à venir)
     df_pred = df_features_all.merge(
-        fixtures_df[["date", "home_team", "away_team", "home_team_known", "away_team_known", "matchday",
-                      "home_team_api", "away_team_api", "home_crest", "away_crest"]],
+        df_to_predict[["date", "home_team", "away_team", "home_team_known", "away_team_known", "matchday",
+                        "home_team_api", "away_team_api", "home_crest", "away_crest",
+                        "status", "home_score", "away_score"]],
         on=["date", "home_team", "away_team"],
         how="inner",
     )
@@ -94,11 +120,8 @@ def predict_upcoming_matches(date_from, date_to):
     for i, class_label in enumerate(model.classes_):
         df_pred[f"proba_{class_label}"] = probas[:, i]
 
-    return df_pred[[
-        "date", "league", "matchday", "home_team_api", "away_team_api",
-        "home_crest", "away_crest",
-        "home_team_known", "away_team_known", "proba_H", "proba_D", "proba_A",
-    ]].sort_values(["date", "league"])
+    df_result = pd.concat([df_played[OUTPUT_COLS], df_pred[OUTPUT_COLS]], ignore_index=True)
+    return df_result.sort_values(["date", "league"])
 
 
 if __name__ == "__main__":
