@@ -1,0 +1,133 @@
+league,api_name,api_short_name,proposed_historical_name,score,confirmed_historical_name
+bundesliga,SV 07 Elversberg,Elversberg,Leverkusen,0.6,
+bundesliga,Hamburger SV,HSV,Hamburg,0.737,Hamburg
+bundesliga,Eintracht Frankfurt,Frankfurt,Ein Frankfurt,0.818,Ein Frankfurt
+bundesliga,FC Bayern München,Bayern,Bayern Munich,0.889,Bayern Munich
+bundesliga,SV Werder Bremen,Bremen,Werder Bremen,0.897,Werder Bremen
+bundesliga,1. FC Köln,1. FC Köln,FC Koln,1.0,FC Koln
+bundesliga,TSG 1899 Hoffenheim,Hoffenheim,Hoffenheim,1.0,Hoffenheim
+bundesliga,Bayer 04 Leverkusen,Leverkusen,Leverkusen,1.0,Leverkusen
+bundesliga,Borussia Dortmund,Dortmund,Dortmund,1.0,Dortmund
+bundesliga,FC Schalke 04,Schalke,Schalke 04,1.0,Schalke 04
+bundesliga,VfB Stuttgart,Stuttgart,Stuttgart,1.0,Stuttgart
+bundesliga,1. FSV Mainz 05,Mainz,Mainz,1.0,Mainz
+bundesliga,FC Augsburg,Augsburg,Augsburg,1.0,Augsburg
+bundesliga,SC Freiburg,Freiburg,Freiburg,1.0,Freiburg
+bundesliga,Borussia Mönchengladbach,M'gladbach,M'gladbach,1.0,M'gladbach
+bundesliga,1. FC Union Berlin,Union Berlin,Union Berlin,1.0,Union Berlin
+bundesliga,SC Paderborn 07,SC Paderborn,Paderborn,1.0,Paderborn
+bundesliga,RB Leipzig,RB Leipzig,RB Leipzig,1.0,RB Leipzig
+champions_league,FC København,København,FC Copenhagen,0.556,FC Copenhagen
+champions_league,Qarabağ Ağdam FK,Qarabağ Ağdam,Qarabağ,0.7,Qarabağ
+champions_league,Paphos FC,Paphos FC,Pafos FC,0.727,Pafos FC
+champions_league,SK Slavia Praha,Slavia Praha,Slavia Prague,0.8,Slavia Prague
+champions_league,FK Kairat,FK Kairat,FC Kairat,0.8,FC Kairat
+champions_league,Sport Lisboa e Benfica,SL Benfica,Benfica,0.824,Benfica
+champions_league,FC Bayern München,Bayern,Bayern Munich,0.889,Bayern Munich
+champions_league,PAE Olympiakos SFP,Olympiakos,Olympiacos,0.9,Olympiacos
+champions_league,Club Atlético de Madrid,Atleti,Atlético Madrid,0.909,Atlético Madrid
+champions_league,Bayer 04 Leverkusen,Leverkusen,Leverkusen,1.0,Leverkusen
+champions_league,Borussia Dortmund,Dortmund,Dortmund,1.0,Dortmund
+champions_league,Eintracht Frankfurt,Frankfurt,Frankfurt,1.0,Frankfurt
+champions_league,Arsenal FC,Arsenal,Arsenal,1.0,Arsenal
+champions_league,Chelsea FC,Chelsea,Chelsea,1.0,Chelsea
+champions_league,Liverpool FC,Liverpool,Liverpool,1.0,Liverpool
+champions_league,Manchester City FC,Man City,Manchester City,1.0,Manchester City
+champions_league,Newcastle United FC,Newcastle,Newcastle,1.0,Newcastle
+champions_league,Tottenham Hotspur FC,Tottenham,Tottenham,1.0,Tottenham
+champions_league,Athletic Club,Athletic,Athletic Club,1.0,Athletic Club
+champions_league,FC Barcelona,Barça,Barcelona,1.0,Barcelona
+champions_league,Real Madrid CF,Real Madrid,Real Madrid,1.0,Real Madrid
+champions_league,Villarreal CF,Villarreal,Villarreal,1.0,Villarreal
+champions_league,Atalanta BC,Atalanta,Atalanta,1.0,Atalanta
+champions_league,FC Internazionale Milano,Inter,Inter,1.0,Inter
+champions_league,Juventus FC,Juventus,Juventus,1.0,Juventus
+champions_league,SSC Napoli,Napoli,Napoli,1.0,Napoli
+champions_league,Sporting Clube de Portugal,Sporting CP,Sporting CP,1.0,Sporting CP
+champions_league,Olympique de Marseille,Marseille,Marseille,1.0,Marseille
+champions_league,Paris Saint-Germain FC,PSG,PSG,1.0,PSG
+champions_league,AS Monaco FC,Monaco,Monaco,1.0,Monaco
+champions_league,Galatasaray SK,Galatasaray,Galatasaray,1.0,Galatasaray
+champions_league,PSV,PSV,PSV,1.0,PSV
+champions_league,AFC Ajax,Ajax,Ajax,1.0,Ajax
+champions_league,Club Brugge KV,Club Brugge,Club Brugge,1.0,Club Brugge
+champions_league,Royale Union Saint-Gilloise,Union SG,Union SG,1.0,Union SG
+champions_league,FK Bodø/Glimt,Bodø/Glimt,Bodø/Glimt,1.0,Bodø/Glimt
+liga,Real Racing Club de Santander,Santander,Ath Madrid,0.526,
+liga,Athletic Club,Athletic,Almeria,0.533,Ath Bilbao
+liga,RC Deportivo La Coruña,Deportivo,La Coruna,0.581,La Coruna
+liga,Club Atlético de Madrid,Atleti,Ath Madrid,0.643,Ath Madrid
+liga,Real Betis Balompié,Real Betis,Betis,0.667,Betis
+liga,Real Sociedad de Fútbol,Real Sociedad,Sociedad,0.762,Sociedad
+liga,Rayo Vallecano de Madrid,Rayo Vallecano,Vallecano,0.783,Vallecano
+liga,RCD Espanyol de Barcelona,Espanyol,Espanol,0.933,Espanol
+liga,CA Osasuna,Osasuna,Osasuna,1.0,Osasuna
+liga,FC Barcelona,Barça,Barcelona,1.0,Barcelona
+liga,Getafe CF,Getafe,Getafe,1.0,Getafe
+liga,Málaga CF,Málaga,Malaga,1.0,Malaga
+liga,Real Madrid CF,Real Madrid,Real Madrid,1.0,Real Madrid
+liga,Levante UD,Levante,Levante,1.0,Levante
+liga,Villarreal CF,Villarreal,Villarreal,1.0,Villarreal
+liga,Valencia CF,Valencia,Valencia,1.0,Valencia
+liga,Deportivo Alavés,Alavés,Alaves,1.0,Alaves
+liga,Elche CF,Elche,Elche,1.0,Elche
+liga,RC Celta de Vigo,Celta,Celta,1.0,Celta
+liga,Sevilla FC,Sevilla FC,Sevilla,1.0,Sevilla
+ligue_1,Olympique Lyonnais,Olympique Lyon,Lyon,0.444,Lyon
+ligue_1,Stade Rennais FC 1901,Stade Rennais,Rennes,0.526,Rennes
+ligue_1,Paris Saint-Germain FC,PSG,Paris SG,0.593,Paris SG
+ligue_1,Le Mans FC,Le Mans,Lens,0.727,
+ligue_1,Racing Club de Lens,RC Lens,Lens,0.727,Lens
+ligue_1,Angers SCO,Angers SCO,Angers,0.75,Angers
+ligue_1,Toulouse FC,Toulouse,Toulouse,1.0,Toulouse
+ligue_1,Stade Brestois 29,Brest,Brest,1.0,Brest
+ligue_1,Olympique de Marseille,Marseille,Marseille,1.0,Marseille
+ligue_1,AJ Auxerre,Auxerre,Auxerre,1.0,Auxerre
+ligue_1,Lille OSC,Lille,Lille,1.0,Lille
+ligue_1,OGC Nice,Nice,Nice,1.0,Nice
+ligue_1,FC Lorient,Lorient,Lorient,1.0,Lorient
+ligue_1,ES Troyes AC,Troyes,Troyes,1.0,Troyes
+ligue_1,Le Havre AC,Le Havre,Le Havre,1.0,Le Havre
+ligue_1,AS Monaco FC,Monaco,Monaco,1.0,Monaco
+ligue_1,RC Strasbourg Alsace,Strasbourg,Strasbourg,1.0,Strasbourg
+ligue_1,Paris FC,Paris FC,Paris FC,1.0,Paris FC
+premier_league,Coventry City FC,Coventry City,Man City,0.571,
+premier_league,Hull City AFC,Hull City,Hull,0.615,Hull
+premier_league,Leeds United FC,Leeds United,Sheffield United,0.643,Leeds
+premier_league,Ipswich Town FC,Ipswich Town,Ipswich,0.737,Ipswich
+premier_league,Brighton & Hove Albion FC,Brighton Hove,Brighton,0.762,Brighton
+premier_league,Nottingham Forest FC,Nottingham,Nott'm Forest,0.8,Nott'm Forest
+premier_league,Arsenal FC,Arsenal,Arsenal,1.0,Arsenal
+premier_league,Aston Villa FC,Aston Villa,Aston Villa,1.0,Aston Villa
+premier_league,Chelsea FC,Chelsea,Chelsea,1.0,Chelsea
+premier_league,Everton FC,Everton,Everton,1.0,Everton
+premier_league,Fulham FC,Fulham,Fulham,1.0,Fulham
+premier_league,Liverpool FC,Liverpool,Liverpool,1.0,Liverpool
+premier_league,Manchester City FC,Man City,Man City,1.0,Man City
+premier_league,Manchester United FC,Man United,Man United,1.0,Man United
+premier_league,Newcastle United FC,Newcastle,Newcastle,1.0,Newcastle
+premier_league,Sunderland AFC,Sunderland,Sunderland,1.0,Sunderland
+premier_league,Tottenham Hotspur FC,Tottenham,Tottenham,1.0,Tottenham
+premier_league,Crystal Palace FC,Crystal Palace,Crystal Palace,1.0,Crystal Palace
+premier_league,Brentford FC,Brentford,Brentford,1.0,Brentford
+premier_league,AFC Bournemouth,Bournemouth,Bournemouth,1.0,Bournemouth
+serie_a,Como 1907,Como 1907,Como,0.615,Como
+serie_a,AC Milan,Milan,Milan,1.0,Milan
+serie_a,ACF Fiorentina,Fiorentina,Fiorentina,1.0,Fiorentina
+serie_a,AS Roma,Roma,Roma,1.0,Roma
+serie_a,Atalanta BC,Atalanta,Atalanta,1.0,Atalanta
+serie_a,Bologna FC 1909,Bologna,Bologna,1.0,Bologna
+serie_a,Cagliari Calcio,Cagliari,Cagliari,1.0,Cagliari
+serie_a,Genoa CFC,Genoa,Genoa,1.0,Genoa
+serie_a,FC Internazionale Milano,Inter,Inter,1.0,Inter
+serie_a,Juventus FC,Juventus,Juventus,1.0,Juventus
+serie_a,SS Lazio,Lazio,Lazio,1.0,Lazio
+serie_a,Parma Calcio 1913,Parma,Parma,1.0,Parma
+serie_a,SSC Napoli,Napoli,Napoli,1.0,Napoli
+serie_a,Udinese Calcio,Udinese,Udinese,1.0,Udinese
+serie_a,Venezia FC,Venezia FC,Venezia,1.0,Venezia
+serie_a,Frosinone Calcio,Frosinone,Frosinone,1.0,Frosinone
+serie_a,US Sassuolo Calcio,Sassuolo,Sassuolo,1.0,Sassuolo
+serie_a,Torino FC,Torino,Torino,1.0,Torino
+serie_a,US Lecce,Lecce,Lecce,1.0,Lecce
+serie_a,AC Monza,Monza,Monza,1.0,Monza

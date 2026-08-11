@@ -1,0 +1,107 @@
+"""
+Pipeline de prédiction : matchs à venir -> probabilités H/D/A.
+
+Principe : on ajoute les matchs à venir comme des lignes "fantômes" (sans
+résultat) à la suite de l'historique, on relance exactement le même calcul
+de features que pour l'entraînement (shift(1) partout -> aucune fuite de
+données), puis on lit les features calculées pour ces lignes fantômes.
+"""
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
+
+from feature_engineering import build_features
+from fetch_fixtures import get_upcoming_fixtures
+
+# Chemins construits depuis l'emplacement du fichier -> fonctionne peu
+# importe le répertoire courant depuis lequel le script/l'app est lancé.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODEL_PATH = PROJECT_ROOT / "models" / "rf_v8.joblib"
+FEATURE_COLS_PATH = PROJECT_ROOT / "models" / "feature_cols.joblib"
+HISTORICAL_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "matches_all_raw.csv"
+
+
+def compute_league_averages(df_features_all, feature_cols):
+    """
+    Moyenne par ligue de chaque feature, calculée sur les matchs déjà joués
+    de df_features_all (celles-ci incluent les colonnes diff_*, absentes du
+    CSV matches_features.csv sauvegardé) -> valeur de repli pour une équipe
+    sans aucun historique (ex: équipe tout juste promue), plutôt qu'un NaN
+    qui ferait planter le modèle.
+    """
+    df_played = df_features_all[df_features_all["full_time_home_goals"].notna()]
+    return df_played.groupby("league")[feature_cols].mean()
+
+
+def build_phantom_rows(fixtures_df):
+    """Convertit les fixtures à venir au format attendu par build_features (schéma de df_all)."""
+    phantom = pd.DataFrame({
+        "date": fixtures_df["date"],
+        "league": fixtures_df["league"],
+        "season": fixtures_df["season"],
+        "home_team": fixtures_df["home_team"],
+        "away_team": fixtures_df["away_team"],
+        # np.nan (pas pd.NA) : pd.NA force les colonnes en dtype "object" une
+        # fois concaténées à l'historique (float64), ce qui casse les .mean()
+        # /.rolling() en aval ("No numeric types to aggregate").
+        "full_time_home_goals": np.nan,
+        "full_time_away_goals": np.nan,
+    })
+    # Les autres colonnes de stats brutes (tirs, corners...) ne sont pas
+    # nécessaires pour les lignes fantômes : elles ne servent qu'à calculer
+    # les features des matchs FUTURS, jamais consommées pour elles-mêmes
+    # côté fantôme (shift(1) les ignore toujours).
+    return phantom
+
+
+def predict_upcoming_matches(date_from, date_to):
+    """Retourne un DataFrame : les matchs à venir + probabilités H/D/A."""
+    model = joblib.load(MODEL_PATH)
+    feature_cols = joblib.load(FEATURE_COLS_PATH)
+
+    fixtures_df = get_upcoming_fixtures(date_from, date_to)
+    if fixtures_df.empty:
+        return fixtures_df
+
+    df_hist = pd.read_csv(HISTORICAL_DATA_PATH, parse_dates=["date"])
+    phantom_rows = build_phantom_rows(fixtures_df)
+
+    df_extended = pd.concat([df_hist, phantom_rows], ignore_index=True)
+    df_extended["date"] = pd.to_datetime(df_extended["date"])
+    df_extended["full_time_home_goals"] = df_extended["full_time_home_goals"].astype(float)
+    df_extended["full_time_away_goals"] = df_extended["full_time_away_goals"].astype(float)
+    df_features_all = build_features(df_extended)
+
+    # On ne garde que les lignes fantômes qu'on vient d'ajouter (les matchs à venir)
+    df_pred = df_features_all.merge(
+        fixtures_df[["date", "home_team", "away_team", "home_team_known", "away_team_known", "matchday",
+                      "home_team_api", "away_team_api", "home_crest", "away_crest"]],
+        on=["date", "home_team", "away_team"],
+        how="inner",
+    )
+
+    # Repli moyenne de ligue pour les NaN restants (équipes sans historique)
+    league_averages = compute_league_averages(df_features_all, feature_cols)
+    for league in df_pred["league"].unique():
+        mask = df_pred["league"] == league
+        df_pred.loc[mask, feature_cols] = df_pred.loc[mask, feature_cols].fillna(league_averages.loc[league])
+
+    X_pred = df_pred[feature_cols]
+    probas = model.predict_proba(X_pred)
+
+    for i, class_label in enumerate(model.classes_):
+        df_pred[f"proba_{class_label}"] = probas[:, i]
+
+    return df_pred[[
+        "date", "league", "matchday", "home_team_api", "away_team_api",
+        "home_crest", "away_crest",
+        "home_team_known", "away_team_known", "proba_H", "proba_D", "proba_A",
+    ]].sort_values(["date", "league"])
+
+
+if __name__ == "__main__":
+    result = predict_upcoming_matches("2026-08-21", "2026-08-24")
+    pd.set_option("display.width", 150)
+    print(result.to_string(index=False))
