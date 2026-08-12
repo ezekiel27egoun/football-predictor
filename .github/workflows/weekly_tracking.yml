@@ -1,0 +1,58 @@
+name: Suivi hebdomadaire du modèle
+
+# Tous les lundis à 06h00 UTC :
+# 1. --update  : récupère les résultats réels des matchs de la semaine
+#    précédente et calcule les métriques (accuracy, log-loss, brier)
+# 2. --predict : génère les prédictions + cotes pour les 7 prochains jours
+# Le lundi matin sert à la fois de "fin" de la semaine qui vient de se
+# terminer et de "début" de la nouvelle -> une seule exécution couvre les
+# deux commandes obligatoires.
+#
+# Déclenchable aussi manuellement (bouton "Run workflow" sur GitHub) pour
+# tester ou rattraper une semaine sans attendre le lundi.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  tracking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Installe les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Met à jour les résultats de la semaine écoulée
+        working-directory: src
+        env:
+          FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python weekly_tracking.py --update
+
+      - name: Génère les prédictions de la semaine à venir
+        working-directory: src
+        env:
+          FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python weekly_tracking.py --predict
+
+      - name: Commit et push les résultats
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/tracking/
+          if git diff --cached --quiet; then
+            echo "Rien de nouveau à committer."
+          else
+            git commit -m "Suivi hebdomadaire automatique : $(date -u +%Y-%m-%d)"
+            git push
+          fi
