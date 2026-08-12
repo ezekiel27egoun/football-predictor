@@ -38,6 +38,10 @@ WEEKLY_SUMMARY_PATH = TRACKING_DIR / "weekly_summary.csv"
 
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 OUTCOMES = ["H", "D", "A"]
+# sklearn.metrics.log_loss exige que les colonnes de proba passées soient
+# dans l'ordre alphabétique des labels, quel que soit l'ordre de `labels=`
+# -> ordre dédié, distinct de OUTCOMES (H/D/A, plus lisible partout ailleurs).
+LOG_LOSS_LABELS = sorted(OUTCOMES)  # ["A", "D", "H"]
 
 # Mots-clés pour retrouver le bon sport_key The Odds API (liste dynamique via
 # /v4/sports -> pas de sport_key codé en dur, ils peuvent changer/varier).
@@ -343,7 +347,7 @@ def compute_week_metrics(df):
 
     proba_modele = resolved.rename(columns={"proba_home": "H", "proba_draw": "D", "proba_away": "A"})
     metrics["log_loss_modele"] = log_loss(
-        resolved["resultat_reel"], proba_modele[OUTCOMES], labels=OUTCOMES
+        resolved["resultat_reel"], proba_modele[LOG_LOSS_LABELS], labels=LOG_LOSS_LABELS
     )
     metrics["brier_modele"] = brier_score_multiclass(proba_modele, resolved["resultat_reel"])
 
@@ -354,7 +358,9 @@ def compute_week_metrics(df):
     with_odds = normalized.dropna()
     if not with_odds.empty:
         actual_with_odds = resolved.loc[with_odds.index, "resultat_reel"]
-        metrics["log_loss_bookmaker"] = log_loss(actual_with_odds, with_odds[OUTCOMES], labels=OUTCOMES)
+        metrics["log_loss_bookmaker"] = log_loss(
+            actual_with_odds, with_odds[LOG_LOSS_LABELS], labels=LOG_LOSS_LABELS
+        )
         metrics["brier_bookmaker"] = brier_score_multiclass(with_odds, actual_with_odds)
 
     return metrics
