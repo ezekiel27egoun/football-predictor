@@ -10,6 +10,8 @@ ajouter des features, calibrer les probabilités, etc.
 Usage :
     python weekly_tracking.py --predict            # avant la journée : génère
                                                      # data/tracking/predictions_{date}.csv
+    python weekly_tracking.py --refresh-odds        # en milieu de semaine : complète les
+                                                     # cotes pas encore postées au moment du --predict
     python weekly_tracking.py --update              # après la journée : complète
                                                      # les résultats réels + métriques
                                                      # de tous les fichiers en attente
@@ -256,6 +258,49 @@ def run_predict(date_from, date_to):
 
 
 # ------------------------------------------------------------------
+# 2bis. Rafraîchissement des cotes manquantes (--refresh-odds)
+# ------------------------------------------------------------------
+# Certains bookmakers ne postent leurs cotes que 2-4 jours avant le match ->
+# une partie des lignes de predictions_{date}.csv générées le lundi (fenêtre
+# de 7 jours) ont encore cote_* = NaN à ce moment. Ce mode retente UNIQUEMENT
+# les lignes concernées, sans regénérer les prédictions ni retoucher aux
+# lignes déjà résolues (déjà jouées).
+
+def refresh_odds_for_file(path):
+    df = pd.read_csv(path, parse_dates=["date"])
+    missing = df["cote_home"].isna() & df["resultat_reel"].isna()
+    if not missing.any():
+        print(f"{path.name} : aucune cote manquante à compléter.")
+        return df
+
+    subset = df.loc[missing].copy()
+    subset = subset.rename(columns={"home_team": "home_team_api", "away_team": "away_team_api"})
+    subset = subset.drop(columns=["cote_home", "cote_draw", "cote_away"])
+
+    api_key = get_odds_api_key()
+    subset = attach_odds(subset, api_key)
+
+    n_filled = int(subset[["cote_home", "cote_draw", "cote_away"]].notna().any(axis=1).sum())
+    df.loc[missing, ["cote_home", "cote_draw", "cote_away"]] = subset[
+        ["cote_home", "cote_draw", "cote_away"]
+    ].to_numpy()
+
+    df.to_csv(path, index=False)
+    print(f"{path.name} : {n_filled}/{int(missing.sum())} cote(s) manquante(s) complétée(s).")
+    return df
+
+
+def run_refresh_odds_all():
+    files = sorted(TRACKING_DIR.glob("predictions_*.csv"))
+    if not files:
+        print("Aucun fichier data/tracking/predictions_*.csv trouvé.")
+        return
+
+    for path in files:
+        refresh_odds_for_file(path)
+
+
+# ------------------------------------------------------------------
 # 3. Mise à jour avec les résultats réels (--update)
 # ------------------------------------------------------------------
 
@@ -404,11 +449,14 @@ def main():
     parser = argparse.ArgumentParser(description="Suivi hebdomadaire de la performance du modèle.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--predict", action="store_true", help="Génère les prédictions des 7 prochains jours.")
+    group.add_argument("--refresh-odds", action="store_true", help="Complète les cotes pas encore postées lors du --predict.")
     group.add_argument("--update", action="store_true", help="Complète les résultats réels + recalcule les métriques.")
     args = parser.parse_args()
 
     if args.predict:
         run_predict(date.today(), date.today() + timedelta(days=7))
+    elif args.refresh_odds:
+        run_refresh_odds_all()
     elif args.update:
         run_update_all()
 

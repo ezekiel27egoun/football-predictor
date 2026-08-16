@@ -1,6 +1,6 @@
 name: Suivi hebdomadaire du modèle
 
-# Tous les lundis à 06h00 UTC :
+# Tous les lundis à 06h00 UTC (mode "full") :
 # 1. --update  : récupère les résultats réels des matchs de la semaine
 #    précédente et calcule les métriques (accuracy, log-loss, brier)
 # 2. --predict : génère les prédictions + cotes pour les 7 prochains jours
@@ -8,12 +8,29 @@ name: Suivi hebdomadaire du modèle
 # terminer et de "début" de la nouvelle -> une seule exécution couvre les
 # deux commandes obligatoires.
 #
-# Déclenchable aussi manuellement (bouton "Run workflow" sur GitHub) pour
-# tester ou rattraper une semaine sans attendre le lundi.
+# Tous les jeudis à 06h00 UTC (mode "refresh-odds") :
+# certains bookmakers ne postent leurs cotes que 2-4 jours avant le match ->
+# une partie des lignes générées le lundi (fenêtre de 7 jours) n'ont pas
+# encore de cote à ce moment-là. Ce passage retente juste de les compléter,
+# sans regénérer les prédictions.
+#
+# Déclenchable aussi manuellement (bouton "Run workflow" sur GitHub), avec
+# le mode de son choix, pour tester ou rattraper sans attendre le prochain
+# créneau.
 on:
   schedule:
     - cron: "0 6 * * 1"
-  workflow_dispatch: {}
+    - cron: "0 6 * * 4"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode à exécuter"
+        required: false
+        default: full
+        type: choice
+        options:
+          - full
+          - refresh-odds
 
 permissions:
   contents: write
@@ -31,7 +48,19 @@ jobs:
       - name: Installe les dépendances
         run: pip install -r requirements.txt
 
+      - name: Détermine le mode (cron du jour ou choix manuel)
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 6 * * 4" ]; then
+            echo "value=refresh-odds" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=full" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Met à jour les résultats de la semaine écoulée
+        if: steps.mode.outputs.value == 'full'
         working-directory: src
         env:
           FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
@@ -39,11 +68,20 @@ jobs:
         run: python weekly_tracking.py --update
 
       - name: Génère les prédictions de la semaine à venir
+        if: steps.mode.outputs.value == 'full'
         working-directory: src
         env:
           FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: python weekly_tracking.py --predict
+
+      - name: Complète les cotes pas encore postées lundi
+        if: steps.mode.outputs.value == 'refresh-odds'
+        working-directory: src
+        env:
+          FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python weekly_tracking.py --refresh-odds
 
       - name: Commit et push les résultats
         run: |
@@ -53,6 +91,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Rien de nouveau à committer."
           else
-            git commit -m "Suivi hebdomadaire automatique : $(date -u +%Y-%m-%d)"
+            git commit -m "Suivi hebdomadaire automatique (${{ steps.mode.outputs.value }}) : $(date -u +%Y-%m-%d)"
             git push
           fi
