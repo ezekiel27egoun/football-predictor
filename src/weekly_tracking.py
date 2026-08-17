@@ -357,9 +357,17 @@ def run_update_file(path):
     )
     df = df.drop(columns=["home_score", "away_score"])
 
+    # newly_resolved peut re-toucher des lignes déjà résolues avant cet appel
+    # (la fenêtre de dates fetchée n'est pas limitée aux seules lignes pending) ->
+    # ne compter comme "nouveau" que les lignes réellement passées de pending à
+    # résolu, et calculer le nombre encore en attente sur l'état final, pas par
+    # simple soustraction (source du bug : comptage faux si des lignes déjà
+    # résolues sont retouchées sans rien changer).
+    still_pending = df["resultat_reel"].isna()
+    n_new = int((pending & ~still_pending).sum())
+
     df.to_csv(path, index=False)
-    n_new = int(newly_resolved.sum())
-    print(f"{path.name} : {n_new} résultat(s) mis à jour ({int(pending.sum()) - n_new} encore en attente).")
+    print(f"{path.name} : {n_new} résultat(s) mis à jour ({int(still_pending.sum())} encore en attente).")
     return df
 
 
