@@ -5,6 +5,7 @@ championnats européens + Champions League.
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -110,6 +111,7 @@ STYLE = """
 .fp-pill.open { background: var(--page-plane); color: var(--text-muted); border: 1px solid var(--border); }
 .fp-pill.played { background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
 .fp-teams-row { display:flex; align-items:center; justify-content:space-between; margin-bottom: 6px; }
+.fp-kickoff { font: 600 12px/1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .fp-team.favored { color: var(--favored-color, var(--text-primary)); }
 
 .fp-score { font: 700 20px/1; color: var(--text-primary); padding: 0 10px;
@@ -180,6 +182,10 @@ with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"
 if df_wide.empty:
     st.info("Aucun match trouvé pour les compétitions suivies.")
     st.stop()
+
+# Heure de coup d'envoi en heure française (l'API renvoie de l'UTC) -> gère
+# automatiquement CET/CEST, pas besoin de gérer le changement d'heure à la main.
+df_wide["kickoff_paris"] = df_wide["kickoff_utc"].dt.tz_convert(ZoneInfo("Europe/Paris"))
 
 df = df_wide[(df_wide["date"] >= pd.Timestamp(week_start)) & (df_wide["date"] <= pd.Timestamp(week_end))]
 
@@ -266,6 +272,7 @@ for match_date in sorted(df["date"].unique()):
                 card = f"""
                 <div class="fp-card">
                   <div class="fp-teams-row">
+                    <span class="fp-kickoff">{row['kickoff_paris'].strftime('%H:%M')}</span>
                     <span class="fp-pill played">Terminé</span>
                   </div>
                   <div class="fp-teams">
@@ -305,6 +312,7 @@ for match_date in sorted(df["date"].unique()):
             card = f"""
             <div class="fp-card">
               <div class="fp-teams-row">
+                <span class="fp-kickoff">{row['kickoff_paris'].strftime('%H:%M')}</span>
                 <span class="fp-pill {pill_class}">{pill_label} · {top_pct:.0f}%</span>
               </div>
               <div class="fp-teams">

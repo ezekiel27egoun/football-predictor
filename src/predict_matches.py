@@ -57,7 +57,7 @@ def build_phantom_rows(fixtures_df):
 
 
 OUTPUT_COLS = [
-    "date", "league", "matchday", "home_team_api", "away_team_api",
+    "date", "kickoff_utc", "league", "matchday", "home_team_api", "away_team_api",
     "home_crest", "away_crest", "home_team_known", "away_team_known",
     "status", "home_score", "away_score",
     "proba_H", "proba_D", "proba_A",
@@ -88,7 +88,7 @@ def predict_upcoming_matches(date_from, date_to):
         df_played[c] = np.nan
 
     if df_to_predict.empty:
-        return df_played[OUTPUT_COLS].sort_values(["date", "league"])
+        return df_played[OUTPUT_COLS].sort_values(["kickoff_utc", "league"])
 
     df_hist = pd.read_csv(HISTORICAL_DATA_PATH, parse_dates=["date"])
     phantom_rows = build_phantom_rows(df_to_predict)
@@ -101,8 +101,8 @@ def predict_upcoming_matches(date_from, date_to):
 
     # On ne garde que les lignes fantômes qu'on vient d'ajouter (les matchs à venir)
     df_pred = df_features_all.merge(
-        df_to_predict[["date", "home_team", "away_team", "home_team_known", "away_team_known", "matchday",
-                        "home_team_api", "away_team_api", "home_crest", "away_crest",
+        df_to_predict[["date", "kickoff_utc", "home_team", "away_team", "home_team_known", "away_team_known",
+                        "matchday", "home_team_api", "away_team_api", "home_crest", "away_crest",
                         "status", "home_score", "away_score"]],
         on=["date", "home_team", "away_team"],
         how="inner",
@@ -121,7 +121,7 @@ def predict_upcoming_matches(date_from, date_to):
         df_pred[f"proba_{class_label}"] = probas[:, i]
 
     df_result = pd.concat([df_played[OUTPUT_COLS], df_pred[OUTPUT_COLS]], ignore_index=True)
-    return df_result.sort_values(["date", "league"])
+    return df_result.sort_values(["kickoff_utc", "league"])
 
 
 if __name__ == "__main__":

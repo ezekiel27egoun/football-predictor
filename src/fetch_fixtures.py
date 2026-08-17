@@ -38,7 +38,8 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5, status=None):
     Retourne un DataFrame : date, league, season, home_team, away_team,
     home_team_known, away_team_known (bool -> False si équipe sans historique),
     status, home_score, away_score (ces deux derniers NaN tant que le match
-    n'est pas terminé).
+    n'est pas terminé), kickoff_utc (horodatage complet du coup d'envoi,
+    tz-aware UTC -> à convertir pour l'affichage local).
     """
     mapping = load_team_mapping()
     rows = []
@@ -67,6 +68,7 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5, status=None):
             # pas d'historique utilisable, on garde le nom API pour l'affichage
             rows.append({
                 "date": m["utcDate"][:10],
+                "kickoff_utc": m["utcDate"],
                 "league": league_name,
                 "season": m["season"]["id"],  # id numérique côté API, pas comparable à nos labels "2025-2026"
                 "home_team_api": home_api_name,
@@ -86,4 +88,5 @@ def get_upcoming_fixtures(date_from, date_to, sleep_seconds=6.5, status=None):
     df = pd.DataFrame(rows)
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
+        df["kickoff_utc"] = pd.to_datetime(df["kickoff_utc"], utc=True)
     return df
