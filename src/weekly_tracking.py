@@ -322,6 +322,11 @@ def result_letter(home_score, away_score):
 
 def run_update_file(path):
     df = pd.read_csv(path, parse_dates=["date"])
+    # Tant qu'aucun résultat n'est connu, resultat_reel/prediction_correcte
+    # sont 100% NaN -> pandas les lit en float64. On les repasse en object
+    # avant d'y écrire des lettres ('H'/'D'/'A') ou des booléens.
+    df["resultat_reel"] = df["resultat_reel"].astype("object")
+    df["prediction_correcte"] = df["prediction_correcte"].astype("object")
     pending = df["resultat_reel"].isna()
     if not pending.any():
         print(f"{path.name} : déjà complet, rien à faire.")
@@ -334,9 +339,12 @@ def run_update_file(path):
         print(f"{path.name} : aucun résultat disponible pour l'instant.")
         return df
 
-    real_results = real_results.rename(columns={
-        "home_team_api": "home_team", "away_team_api": "away_team",
-    })[["date", "league", "home_team", "away_team", "home_score", "away_score"]]
+    # get_upcoming_fixtures retourne À LA FOIS home_team (nom historique mappé)
+    # ET home_team_api (nom API) -> sélectionner AVANT de renommer, sinon les
+    # deux colonnes finissent avec le même nom "home_team" (dupliqué), ce qui
+    # fait planter le merge plus bas ("column label is not unique").
+    real_results = real_results[["date", "league", "home_team_api", "away_team_api", "home_score", "away_score"]]
+    real_results = real_results.rename(columns={"home_team_api": "home_team", "away_team_api": "away_team"})
 
     df = df.merge(real_results, on=["date", "league", "home_team", "away_team"], how="left", suffixes=("", "_new"))
 
@@ -365,7 +373,10 @@ def brier_score_multiclass(proba_df, actual_series):
     (proba_k - reel_k)^2 pour k in {H, D, A} (reel_k = 1 si k est le résultat
     réel, 0 sinon). sklearn ne propose que le cas binaire, implémenté à la main.
     """
-    onehot = pd.get_dummies(actual_series)[OUTCOMES].to_numpy(dtype=float)
+    # reindex (pas indexation directe) : si une issue (ex "A") n'apparaît dans
+    # aucun match résolu de la semaine, get_dummies ne crée pas sa colonne ->
+    # reindex la rajoute à 0 au lieu de lever un KeyError.
+    onehot = pd.get_dummies(actual_series).reindex(columns=OUTCOMES, fill_value=0).to_numpy(dtype=float)
     probas = proba_df[OUTCOMES].to_numpy(dtype=float)
     return float(np.mean(np.sum((probas - onehot) ** 2, axis=1)))
 

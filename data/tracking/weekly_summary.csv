@@ -1,0 +1,2 @@
+semaine,n_matchs_resolus,accuracy_modele,log_loss_modele,log_loss_bookmaker,brier_modele,brier_bookmaker
+2026-08-12,4,0.5,1.0829922574373685,1.091295471162686,0.655320801952216,0.6578584480917068
