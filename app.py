@@ -258,6 +258,8 @@ for match_date in sorted(df["date"].unique()):
             away_new = "" if row["away_team_known"] else '<span class="fp-new">nouveau</span>'
             home_crest = row.get("home_crest", "")
             away_crest = row.get("away_crest", "")
+            matchday_label = f" · J{int(row['matchday'])}" if pd.notna(row.get("matchday")) else ""
+            kickoff_label = f"{row['kickoff_paris'].strftime('%H:%M')}{matchday_label}"
 
             if row["status"] == "FINISHED":
                 # Match déjà joué -> score réel, pas de prédiction (inutile)
@@ -272,7 +274,7 @@ for match_date in sorted(df["date"].unique()):
                 card = f"""
                 <div class="fp-card">
                   <div class="fp-teams-row">
-                    <span class="fp-kickoff">{row['kickoff_paris'].strftime('%H:%M')}</span>
+                    <span class="fp-kickoff">{kickoff_label}</span>
                     <span class="fp-pill played">Terminé</span>
                   </div>
                   <div class="fp-teams">
@@ -312,7 +314,7 @@ for match_date in sorted(df["date"].unique()):
             card = f"""
             <div class="fp-card">
               <div class="fp-teams-row">
-                <span class="fp-kickoff">{row['kickoff_paris'].strftime('%H:%M')}</span>
+                <span class="fp-kickoff">{kickoff_label}</span>
                 <span class="fp-pill {pill_class}">{pill_label} · {top_pct:.0f}%</span>
               </div>
               <div class="fp-teams">
