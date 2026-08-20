@@ -130,7 +130,7 @@ WINDOW_PAST_DAYS = 200   # ~toute la saison en cours en arrière
 WINDOW_FUTURE_DAYS = 90
 
 
-@st.cache_data(ttl=3600)  # 1h de cache -> évite de re-solliciter l'API à chaque interaction
+@st.cache_data(ttl=3 * 3600)  # 3h de cache -> évite de re-solliciter l'API à chaque interaction
 def get_predictions(date_from, date_to):
     return predict_upcoming_matches(str(date_from), str(date_to))
 
