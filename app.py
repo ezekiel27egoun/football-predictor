@@ -100,16 +100,21 @@ STYLE = """
 }
 .fp-new { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
 
-.fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); margin-top: 8px; }
+.fp-bar-wrap { position: relative; margin-top: 8px; padding-bottom: 20px; }
+.fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); }
 .fp-bar div { height: 100%; }
 .fp-bar .seg-win { background: var(--likely); }
 .fp-bar .seg-lose { background: var(--underdog); }
 .fp-bar .seg-draw { background: var(--unlikely-fill); }
 .fp-bar div + div { margin-left: 2px; }
 
-.fp-draw-caption { text-align: center; margin-top: 6px;
+/* Positionné exactement au-dessus du segment gris (left/width en % =
+   ceux du segment), pas centré sous toute la barre -> reste aligné avec
+   le nul même quand une des deux équipes domine largement la barre. */
+.fp-draw-caption { position: absolute; top: 100%; margin-top: 4px;
+  display: flex; justify-content: center;
   font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-muted);
-  font-variant-numeric: tabular-nums; }
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .fp-date-header { font: 700 20px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary); margin: 24px 0 4px 0; }
@@ -371,12 +376,14 @@ for match_date in sorted(df["date"].unique()):
                   {f'<img src="{away_crest}">' if away_crest else ""}
                 </div>
               </div>
-              <div class="fp-bar">
-                <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
-                <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
-                <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
+              <div class="fp-bar-wrap">
+                <div class="fp-bar">
+                  <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
+                  <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
+                  <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
+                </div>
+                <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
               </div>
-              <div class="fp-draw-caption">Nul {pct_d:.0f}%</div>
             </div>
             """
             st.markdown(card, unsafe_allow_html=True)
