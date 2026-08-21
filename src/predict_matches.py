@@ -12,6 +12,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from corners_markets import compute_corners_markets
 from feature_engineering import build_features
 from fetch_fixtures import get_upcoming_fixtures
 from goals_markets import compute_goals_markets
@@ -23,6 +24,8 @@ MODEL_PATH = PROJECT_ROOT / "models" / "rf_v8.joblib"
 FEATURE_COLS_PATH = PROJECT_ROOT / "models" / "feature_cols.joblib"
 GOALS_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "goals_home.joblib"
 GOALS_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "goals_away.joblib"
+CORNERS_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "corners_home.joblib"
+CORNERS_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "corners_away.joblib"
 HISTORICAL_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "matches_all_raw.csv"
 
 
@@ -81,6 +84,10 @@ OUTPUT_COLS = [
     "proba_home_over_0_5", "proba_home_over_1_5", "proba_home_over_2_5",
     "proba_away_over_0_5", "proba_away_over_1_5", "proba_away_over_2_5",
     "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
+    "expected_home_corners", "expected_away_corners",
+    "proba_home_corners_over_3_5", "proba_home_corners_over_4_5",
+    "proba_away_corners_over_3_5", "proba_away_corners_over_4_5",
+    "proba_corners_over_8_5", "proba_corners_over_9_5", "proba_corners_over_10_5",
 ]
 
 
@@ -97,6 +104,8 @@ def predict_upcoming_matches(date_from, date_to):
     feature_cols = joblib.load(FEATURE_COLS_PATH)
     goals_model_home = joblib.load(GOALS_HOME_MODEL_PATH)
     goals_model_away = joblib.load(GOALS_AWAY_MODEL_PATH)
+    corners_model_home = joblib.load(CORNERS_HOME_MODEL_PATH)
+    corners_model_away = joblib.load(CORNERS_AWAY_MODEL_PATH)
 
     fixtures_df = get_upcoming_fixtures(date_from, date_to, status=None)
     if fixtures_df.empty:
@@ -106,13 +115,17 @@ def predict_upcoming_matches(date_from, date_to):
     df_played = fixtures_df[played_mask].copy()
     df_to_predict = fixtures_df[~played_mask].copy()
 
-    goals_out_cols = [
+    derived_out_cols = [
         "expected_home_goals", "expected_away_goals",
         "proba_home_over_0_5", "proba_home_over_1_5", "proba_home_over_2_5",
         "proba_away_over_0_5", "proba_away_over_1_5", "proba_away_over_2_5",
         "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
+        "expected_home_corners", "expected_away_corners",
+        "proba_home_corners_over_3_5", "proba_home_corners_over_4_5",
+        "proba_away_corners_over_3_5", "proba_away_corners_over_4_5",
+        "proba_corners_over_8_5", "proba_corners_over_9_5", "proba_corners_over_10_5",
     ]
-    for c in ("proba_H", "proba_D", "proba_A", *goals_out_cols):
+    for c in ("proba_H", "proba_D", "proba_A", *derived_out_cols):
         df_played[c] = np.nan
 
     if df_to_predict.empty:
@@ -154,6 +167,16 @@ def predict_upcoming_matches(date_from, date_to):
     lambda_home = goals_model_home.predict(X_pred)
     lambda_away = goals_model_away.predict(X_pred)
     for key, values in compute_goals_markets(lambda_home, lambda_away).items():
+        df_pred[key] = values
+
+    # Corners attendus -> mêmes principes (Poisson). Pas de données brutes
+    # de corners pour la Champions League, mais les clubs qui jouent aussi
+    # dans un championnat domestique suivi héritent de leur forme corners
+    # via le pooling multi-compétitions (cf. add_rolling_features) -> pas
+    # besoin d'exclure la C1, le repli moyenne de ligue gère le reste.
+    corners_lambda_home = corners_model_home.predict(X_pred)
+    corners_lambda_away = corners_model_away.predict(X_pred)
+    for key, values in compute_corners_markets(corners_lambda_home, corners_lambda_away).items():
         df_pred[key] = values
 
     df_result = pd.concat([df_played[OUTPUT_COLS], df_pred[OUTPUT_COLS]], ignore_index=True)

@@ -479,6 +479,33 @@ for match_date in sorted(df["date"].unique()):
                 """
                 st.markdown(goals_html, unsafe_allow_html=True)
 
+            with st.expander("🚩 Corners — over/under"):
+                home_c, away_c = row["expected_home_corners"], row["expected_away_corners"]
+                corners_html = f"""
+                <div class="fp-goals">
+                  <div class="fp-goals-row"><span class="g-label">Corners attendus</span>
+                    <span class="g-value">{home_c:.1f} – {away_c:.1f}</span></div>
+
+                  <div class="fp-goals-facing">
+                    <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
+                  </div>
+                  <div class="fp-goals-facing">
+                    <span class="g-home" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
+                    <span class="g-threshold">3,5 corners</span>
+                    <span class="g-away" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
+                  </div>
+                  <div class="fp-goals-facing">
+                    <span class="g-home" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
+                    <span class="g-threshold">4,5 corners</span>
+                    <span class="g-away" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
+                  </div>
+
+                  <div class="fp-goals-row"><span class="g-label">Total du match — plus de 9,5 corners</span>
+                    <span class="g-value" {pct_color_style(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
+                </div>
+                """
+                st.markdown(corners_html, unsafe_allow_html=True)
+
 if (~df["home_team_known"] | ~df["away_team_known"]).any():
     st.caption("« nouveau » = équipe sans historique dans nos données (promotion récente) — "
                "prédiction basée sur la moyenne de sa ligue, moins fiable que pour les autres équipes.")
