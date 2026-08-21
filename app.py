@@ -117,6 +117,10 @@ STYLE = """
   font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .fp-goals { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 4px 2px 2px 2px; }
+.fp-goals-group { font: 700 11px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 14px 0 2px 0; }
+.fp-goals-group:first-child { margin-top: 0; }
 .fp-goals-row { display:flex; justify-content:space-between; align-items:center;
   padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .fp-goals-row:last-child { border-bottom: none; }
@@ -397,10 +401,29 @@ for match_date in sorted(df["date"].unique()):
 
             with st.expander("⚽ Buts — over/under, BTTS"):
                 home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
+                home_name, away_name = row["home_team_api"], row["away_team_api"]
                 goals_html = f"""
                 <div class="fp-goals">
                   <div class="fp-goals-row"><span class="g-label">Buts attendus</span>
                     <span class="g-value">{home_g:.1f} – {away_g:.1f}</span></div>
+
+                  <div class="fp-goals-group">{home_name}</div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 1 but</span>
+                    <span class="g-value">{row['proba_home_over_0_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 2 buts</span>
+                    <span class="g-value">{row['proba_home_over_1_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 3 buts</span>
+                    <span class="g-value">{row['proba_home_over_2_5'] * 100:.0f}%</span></div>
+
+                  <div class="fp-goals-group">{away_name}</div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 1 but</span>
+                    <span class="g-value">{row['proba_away_over_0_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 2 buts</span>
+                    <span class="g-value">{row['proba_away_over_1_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Marque au moins 3 buts</span>
+                    <span class="g-value">{row['proba_away_over_2_5'] * 100:.0f}%</span></div>
+
+                  <div class="fp-goals-group">Total du match (les deux équipes)</div>
                   <div class="fp-goals-row"><span class="g-label">Plus de 1,5 but</span>
                     <span class="g-value">{row['proba_over_1_5'] * 100:.0f}%</span></div>
                   <div class="fp-goals-row"><span class="g-label">Plus de 2,5 buts</span>

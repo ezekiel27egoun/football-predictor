@@ -78,6 +78,8 @@ OUTPUT_COLS = [
     "status", "home_score", "away_score",
     "proba_H", "proba_D", "proba_A",
     "expected_home_goals", "expected_away_goals",
+    "proba_home_over_0_5", "proba_home_over_1_5", "proba_home_over_2_5",
+    "proba_away_over_0_5", "proba_away_over_1_5", "proba_away_over_2_5",
     "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
 ]
 
@@ -106,6 +108,8 @@ def predict_upcoming_matches(date_from, date_to):
 
     goals_out_cols = [
         "expected_home_goals", "expected_away_goals",
+        "proba_home_over_0_5", "proba_home_over_1_5", "proba_home_over_2_5",
+        "proba_away_over_0_5", "proba_away_over_1_5", "proba_away_over_2_5",
         "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
     ]
     for c in ("proba_H", "proba_D", "proba_A", *goals_out_cols):

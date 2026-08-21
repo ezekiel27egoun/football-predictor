@@ -26,6 +26,16 @@ def compute_goals_markets(lambda_home, lambda_away):
     return {
         "expected_home_goals": lambda_home,
         "expected_away_goals": lambda_away,
+        # Par équipe -> la proba que CETTE équipe précise marque plus de
+        # X buts n'est pas la même que celle de l'adversaire (chacune a
+        # son propre lambda), donc calculée séparément, pas partagée.
+        "proba_home_over_0_5": 1 - poisson.cdf(0, lambda_home),
+        "proba_home_over_1_5": 1 - poisson.cdf(1, lambda_home),
+        "proba_home_over_2_5": 1 - poisson.cdf(2, lambda_home),
+        "proba_away_over_0_5": 1 - poisson.cdf(0, lambda_away),
+        "proba_away_over_1_5": 1 - poisson.cdf(1, lambda_away),
+        "proba_away_over_2_5": 1 - poisson.cdf(2, lambda_away),
+        # Total du match (les deux équipes cumulées)
         "proba_over_1_5": 1 - poisson.cdf(1, lambda_total),
         "proba_over_2_5": 1 - poisson.cdf(2, lambda_total),
         "proba_over_3_5": 1 - poisson.cdf(3, lambda_total),
