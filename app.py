@@ -81,43 +81,35 @@ STYLE = """
 .fp-teams { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; gap: 8px; }
 .fp-team { display:flex; align-items:center; gap:8px; font-size: 15px; font-weight: 600; color: var(--text-primary);
   min-width: 0; flex: 1 1 auto; }
+.fp-team.away { justify-content: flex-end; }
 .fp-team img { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; }
 .fp-team span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-team .pct { margin-left: 2px; font-variant-numeric: tabular-nums; }
 .fp-vs { color: var(--text-muted); font-size: 12px; padding: 0 10px; flex-shrink: 0; }
-.fp-team .role-tag { display: none; }
 
 /* Écran étroit (mobile) : les noms longs poussaient le "vs" et se
    mélangeaient visuellement avec les probabilités -> équipes empilées
    verticalement à la place, chacune sur toute la largeur disponible.
-   Une fois empilées, plus rien (position gauche/droite, "vs" au milieu)
-   n'indique qui est domicile/extérieur -> étiquette explicite ajoutée. */
+   Domicile toujours en haut, extérieur toujours en bas -> avec le
+   pourcentage collé au nom (coloré), pas besoin d'étiquette en plus. */
 @media (max-width: 480px) {
   .fp-teams { flex-direction: column; align-items: stretch; }
   .fp-team { justify-content: flex-start; }
   .fp-team.away { flex-direction: row-reverse; justify-content: flex-end; }
   .fp-vs { align-self: center; padding: 2px 0; }
-  .fp-team .role-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-    text-transform: uppercase; color: var(--text-muted); background: var(--page-plane);
-    border-radius: 4px; padding: 2px 5px; flex-shrink: 0; }
 }
 .fp-new { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
 
-.fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); }
+.fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); margin-top: 8px; }
 .fp-bar div { height: 100%; }
 .fp-bar .seg-win { background: var(--likely); }
 .fp-bar .seg-lose { background: var(--underdog); }
 .fp-bar .seg-draw { background: var(--unlikely-fill); }
 .fp-bar div + div { margin-left: 2px; }
 
-.fp-values { display:flex; justify-content:space-between; margin-top: 6px;
-  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-secondary);
+.fp-draw-caption { text-align: center; margin-top: 6px;
+  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-muted);
   font-variant-numeric: tabular-nums; }
-.fp-values .label { color: var(--text-muted); margin-right: 4px; }
-.fp-values .top .label, .fp-values .top .pct { color: var(--text-primary); font-weight: 600; }
-.fp-values .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:0px; }
-.fp-values .dot.win { background: var(--likely); }
-.fp-values .dot.lose { background: var(--underdog); }
-.fp-values .dot.draw { background: var(--unlikely-fill); }
 
 .fp-date-header { font: 700 20px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary); margin: 24px 0 4px 0; }
@@ -318,7 +310,6 @@ for match_date in sorted(df["date"].unique()):
                   </div>
                   <div class="fp-teams">
                     <div class="{home_cls}">
-                      <span class="role-tag">Dom.</span>
                       {f'<img src="{home_crest}">' if home_crest else ""}
                       <span class="name">{row['home_team_api']}</span>{home_new}
                     </div>
@@ -326,7 +317,6 @@ for match_date in sorted(df["date"].unique()):
                     <div class="{away_cls}">
                       <span class="name">{row['away_team_api']}</span>{away_new}
                       {f'<img src="{away_crest}">' if away_crest else ""}
-                      <span class="role-tag">Ext.</span>
                     </div>
                   </div>
                 </div>
@@ -358,8 +348,6 @@ for match_date in sorted(df["date"].unique()):
                 "D": "draw",
             }
             seg_cls = {k: f"seg-{role[k]}" for k in role}
-            dot_cls = {k: f"dot {role[k]}" for k in role}
-            val_cls = {k: ("top" if k == top_outcome else "") for k in ("H", "D", "A")}
 
             home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
             away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
@@ -372,15 +360,15 @@ for match_date in sorted(df["date"].unique()):
               </div>
               <div class="fp-teams">
                 <div class="{home_cls}">
-                  <span class="role-tag">Dom.</span>
                   {f'<img src="{home_crest}">' if home_crest else ""}
                   <span class="name">{row['home_team_api']}</span>{home_new}
+                  <span class="pct">{pct_h:.0f}%</span>
                 </div>
                 <div class="fp-vs">vs</div>
                 <div class="{away_cls}">
+                  <span class="pct">{pct_a:.0f}%</span>
                   <span class="name">{row['away_team_api']}</span>{away_new}
                   {f'<img src="{away_crest}">' if away_crest else ""}
-                  <span class="role-tag">Ext.</span>
                 </div>
               </div>
               <div class="fp-bar">
@@ -388,11 +376,7 @@ for match_date in sorted(df["date"].unique()):
                 <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
                 <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
               </div>
-              <div class="fp-values">
-                <span class="{val_cls['H']}"><span class="{dot_cls['H']}"></span><span class="label">Dom.</span><span class="pct">{pct_h:.0f}%</span></span>
-                <span class="{val_cls['D']}"><span class="{dot_cls['D']}"></span><span class="label">Nul</span><span class="pct">{pct_d:.0f}%</span></span>
-                <span class="{val_cls['A']}"><span class="{dot_cls['A']}"></span><span class="label">Ext.</span><span class="pct">{pct_a:.0f}%</span></span>
-              </div>
+              <div class="fp-draw-caption">Nul {pct_d:.0f}%</div>
             </div>
             """
             st.markdown(card, unsafe_allow_html=True)
