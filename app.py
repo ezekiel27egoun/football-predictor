@@ -34,9 +34,16 @@ STYLE = """
   --text-secondary:  #52514e;
   --text-muted:      #898781;
   --border:          rgba(11,11,11,0.10);
-  --home:            #2a78d6;
-  --draw:            #eb6834;
-  --away:            #1baf7a;
+  /* La couleur suit désormais la PROBABILITÉ, pas l'équipe (domicile/nul/
+     extérieur) : vert = issue la plus probable, peu importe laquelle ;
+     gris = les deux autres. L'identité (qui est qui) passe par le texte
+     ("Dom./Nul/Ext.") et la position, jamais par la couleur seule. */
+  --likely:          #1baf7a;
+  --unlikely-fill:   #ded9d0;
+  /* Purement décoratif (titre, liseré de l'avertissement) -> aucun lien
+     avec la lecture des probabilités, jamais utilisé sur une barre/valeur. */
+  --brand-accent:    #2a78d6;
+  --warn-accent:     #eb6834;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-fp-theme="light"]) {
@@ -45,9 +52,10 @@ STYLE = """
     --text-primary:    #ffffff;
     --text-secondary:  #c3c2b7;
     --border:          rgba(255,255,255,0.10);
-    --home:            #3987e5;
-    --draw:            #d95926;
-    --away:            #199e70;
+    --likely:          #22c589;
+    --unlikely-fill:   #3a3934;
+    --brand-accent:    #3987e5;
+    --warn-accent:     #d95926;
   }
 }
 
@@ -63,23 +71,35 @@ STYLE = """
   padding: 12px 16px; margin-bottom: 10px;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 
-.fp-teams { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
-.fp-team { display:flex; align-items:center; gap:8px; font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.fp-team img { width: 24px; height: 24px; object-fit: contain; }
-.fp-vs { color: var(--text-muted); font-size: 12px; padding: 0 10px; }
+.fp-teams { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; gap: 8px; }
+.fp-team { display:flex; align-items:center; gap:8px; font-size: 15px; font-weight: 600; color: var(--text-primary);
+  min-width: 0; flex: 1 1 auto; }
+.fp-team img { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; }
+.fp-team span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-vs { color: var(--text-muted); font-size: 12px; padding: 0 10px; flex-shrink: 0; }
+
+/* Écran étroit (mobile) : les noms longs poussaient le "vs" et se
+   mélangeaient visuellement avec les probabilités -> équipes empilées
+   verticalement à la place, chacune sur toute la largeur disponible. */
+@media (max-width: 480px) {
+  .fp-teams { flex-direction: column; align-items: stretch; }
+  .fp-team { justify-content: flex-start; }
+  .fp-team.away { flex-direction: row-reverse; justify-content: flex-end; }
+  .fp-vs { align-self: center; padding: 2px 0; }
+}
 .fp-new { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
 
 .fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); }
 .fp-bar div { height: 100%; }
-.fp-bar .seg-h { background: var(--home); }
-.fp-bar .seg-d { background: var(--draw); }
-.fp-bar .seg-a { background: var(--away); }
-.fp-bar .seg-h + div, .fp-bar .seg-d + div { margin-left: 2px; }
+.fp-bar .seg-top { background: var(--likely); }
+.fp-bar .seg-rest { background: var(--unlikely-fill); }
+.fp-bar div + div { margin-left: 2px; }
 
 .fp-values { display:flex; justify-content:space-between; margin-top: 6px;
   font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-secondary);
   font-variant-numeric: tabular-nums; }
-.fp-values span.dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:0px; }
+.fp-values .label { color: var(--text-muted); margin-right: 4px; }
+.fp-values .top .label, .fp-values .top .pct { color: var(--text-primary); font-weight: 600; }
 
 .fp-date-header { font: 700 20px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary); margin: 24px 0 4px 0; }
@@ -87,14 +107,14 @@ STYLE = """
 .fp-hero { margin: 4px 0 6px 0; }
 .fp-hero h1 { font: 800 40px/1.15 system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0; letter-spacing: -0.01em;
-  background: linear-gradient(90deg, var(--home) 0%, var(--draw) 55%, var(--away) 100%);
+  background: linear-gradient(90deg, var(--brand-accent) 0%, var(--likely) 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .fp-byline { font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-secondary); margin: 2px 0 18px 0; }
 .fp-byline b { color: var(--text-primary); }
 
 .fp-disclaimer { display:flex; gap:10px; align-items:flex-start; background: var(--surface-1);
-  border: 1px solid var(--border); border-left: 3px solid var(--draw); border-radius: 8px;
+  border: 1px solid var(--border); border-left: 3px solid var(--warn-accent); border-radius: 8px;
   padding: 10px 14px; margin: 0 0 22px 0;
   font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-secondary); }
 .fp-disclaimer .icon { font-size: 16px; line-height: 1.5; }
@@ -106,13 +126,13 @@ STYLE = """
 .fp-kpi .l { font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-muted); }
 
 .fp-pill { font: 600 11px/1; padding: 4px 8px; border-radius: 20px; white-space: nowrap; }
-.fp-pill.strong { background: color-mix(in srgb, var(--home) 16%, transparent); color: var(--home); }
-.fp-pill.mid { background: color-mix(in srgb, var(--draw) 16%, transparent); color: var(--draw); }
+.fp-pill.strong { background: color-mix(in srgb, var(--likely) 18%, transparent); color: var(--likely); }
+.fp-pill.mid { background: color-mix(in srgb, var(--likely) 8%, transparent); color: var(--likely); }
 .fp-pill.open { background: var(--page-plane); color: var(--text-muted); border: 1px solid var(--border); }
 .fp-pill.played { background: var(--page-plane); color: var(--text-secondary); border: 1px solid var(--border); }
 .fp-teams-row { display:flex; align-items:center; justify-content:space-between; margin-bottom: 6px; }
 .fp-kickoff { font: 600 12px/1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.fp-team.favored { color: var(--favored-color, var(--text-primary)); }
+.fp-team.favored { color: var(--likely); }
 
 .fp-score { font: 700 20px/1; color: var(--text-primary); padding: 0 10px;
   font-variant-numeric: tabular-nums; }
@@ -235,9 +255,8 @@ st.markdown(
 
 st.markdown(
     '<div class="fp-legend">'
-    '<span><span class="dot" style="background:var(--home)"></span>Victoire domicile</span>'
-    '<span><span class="dot" style="background:var(--draw)"></span>Match nul</span>'
-    '<span><span class="dot" style="background:var(--away)"></span>Victoire extérieure</span>'
+    '<span><span class="dot" style="background:var(--likely)"></span>Issue la plus probable</span>'
+    '<span><span class="dot" style="background:var(--unlikely-fill)"></span>Moins probable</span>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -265,11 +284,11 @@ for match_date in sorted(df["date"].unique()):
                 # Match déjà joué -> score réel, pas de prédiction (inutile)
                 h_score, a_score = int(row["home_score"]), int(row["away_score"])
                 if h_score > a_score:
-                    home_cls, away_cls, home_style, away_style = "fp-team favored", "fp-team", ' style="--favored-color:var(--home)"', ""
+                    home_cls, away_cls = "fp-team favored", "fp-team away"
                 elif a_score > h_score:
-                    home_cls, away_cls, home_style, away_style = "fp-team", "fp-team favored", "", ' style="--favored-color:var(--away)"'
+                    home_cls, away_cls = "fp-team", "fp-team away favored"
                 else:
-                    home_cls, away_cls, home_style, away_style = "fp-team", "fp-team", "", ""
+                    home_cls, away_cls = "fp-team", "fp-team away"
 
                 card = f"""
                 <div class="fp-card">
@@ -278,13 +297,13 @@ for match_date in sorted(df["date"].unique()):
                     <span class="fp-pill played">Terminé</span>
                   </div>
                   <div class="fp-teams">
-                    <div class="{home_cls}"{home_style}>
+                    <div class="{home_cls}">
                       {f'<img src="{home_crest}">' if home_crest else ""}
-                      {row['home_team_api']}{home_new}
+                      <span class="name">{row['home_team_api']}</span>{home_new}
                     </div>
                     <div class="fp-score">{h_score} - {a_score}</div>
-                    <div class="{away_cls}"{away_style}>
-                      {row['away_team_api']}{away_new}
+                    <div class="{away_cls}">
+                      <span class="name">{row['away_team_api']}</span>{away_new}
                       {f'<img src="{away_crest}">' if away_crest else ""}
                     </div>
                   </div>
@@ -306,10 +325,14 @@ for match_date in sorted(df["date"].unique()):
             else:
                 pill_class, pill_label = "open", "Match ouvert"
 
-            home_style = ' style="--favored-color:var(--home)"' if top_outcome == "H" else ""
-            away_style = ' style="--favored-color:var(--away)"' if top_outcome == "A" else ""
             home_cls = "fp-team favored" if top_outcome == "H" else "fp-team"
-            away_cls = "fp-team favored" if top_outcome == "A" else "fp-team"
+            away_cls = "fp-team away favored" if top_outcome == "A" else "fp-team away"
+
+            # Couleur = probabilité (vert = plus probable, gris = le reste),
+            # jamais l'équipe -> identité portée par le texte (Dom./Nul/Ext.)
+            # et la position, pas par la couleur (cf. décision produit).
+            seg_cls = {k: ("seg-top" if k == top_outcome else "seg-rest") for k in ("H", "D", "A")}
+            val_cls = {k: ("top" if k == top_outcome else "") for k in ("H", "D", "A")}
 
             card = f"""
             <div class="fp-card">
@@ -318,25 +341,25 @@ for match_date in sorted(df["date"].unique()):
                 <span class="fp-pill {pill_class}">{pill_label} · {top_pct:.0f}%</span>
               </div>
               <div class="fp-teams">
-                <div class="{home_cls}"{home_style}>
+                <div class="{home_cls}">
                   {f'<img src="{home_crest}">' if home_crest else ""}
-                  {row['home_team_api']}{home_new}
+                  <span class="name">{row['home_team_api']}</span>{home_new}
                 </div>
                 <div class="fp-vs">vs</div>
-                <div class="{away_cls}"{away_style}>
-                  {row['away_team_api']}{away_new}
+                <div class="{away_cls}">
+                  <span class="name">{row['away_team_api']}</span>{away_new}
                   {f'<img src="{away_crest}">' if away_crest else ""}
                 </div>
               </div>
               <div class="fp-bar">
-                <div class="seg-h" style="width:{pct_h}%"></div>
-                <div class="seg-d" style="width:{pct_d}%"></div>
-                <div class="seg-a" style="width:{pct_a}%"></div>
+                <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
+                <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
+                <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
               </div>
               <div class="fp-values">
-                <span><span class="dot" style="background:var(--home)"></span>{pct_h:.0f}%</span>
-                <span><span class="dot" style="background:var(--draw)"></span>{pct_d:.0f}%</span>
-                <span><span class="dot" style="background:var(--away)"></span>{pct_a:.0f}%</span>
+                <span class="{val_cls['H']}"><span class="label">Dom.</span><span class="pct">{pct_h:.0f}%</span></span>
+                <span class="{val_cls['D']}"><span class="label">Nul</span><span class="pct">{pct_d:.0f}%</span></span>
+                <span class="{val_cls['A']}"><span class="label">Ext.</span><span class="pct">{pct_a:.0f}%</span></span>
               </div>
             </div>
             """
