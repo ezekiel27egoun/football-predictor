@@ -14,12 +14,15 @@ import pandas as pd
 
 from feature_engineering import build_features
 from fetch_fixtures import get_upcoming_fixtures
+from goals_markets import compute_goals_markets
 
 # Chemins construits depuis l'emplacement du fichier -> fonctionne peu
 # importe le répertoire courant depuis lequel le script/l'app est lancé.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_ROOT / "models" / "rf_v8.joblib"
 FEATURE_COLS_PATH = PROJECT_ROOT / "models" / "feature_cols.joblib"
+GOALS_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "goals_home.joblib"
+GOALS_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "goals_away.joblib"
 HISTORICAL_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "matches_all_raw.csv"
 
 
@@ -74,6 +77,8 @@ OUTPUT_COLS = [
     "home_crest", "away_crest", "home_team_known", "away_team_known",
     "status", "home_score", "away_score",
     "proba_H", "proba_D", "proba_A",
+    "expected_home_goals", "expected_away_goals",
+    "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
 ]
 
 
@@ -88,6 +93,8 @@ def predict_upcoming_matches(date_from, date_to):
     """
     model = joblib.load(MODEL_PATH)
     feature_cols = joblib.load(FEATURE_COLS_PATH)
+    goals_model_home = joblib.load(GOALS_HOME_MODEL_PATH)
+    goals_model_away = joblib.load(GOALS_AWAY_MODEL_PATH)
 
     fixtures_df = get_upcoming_fixtures(date_from, date_to, status=None)
     if fixtures_df.empty:
@@ -97,7 +104,11 @@ def predict_upcoming_matches(date_from, date_to):
     df_played = fixtures_df[played_mask].copy()
     df_to_predict = fixtures_df[~played_mask].copy()
 
-    for c in ("proba_H", "proba_D", "proba_A"):
+    goals_out_cols = [
+        "expected_home_goals", "expected_away_goals",
+        "proba_over_1_5", "proba_over_2_5", "proba_over_3_5", "proba_btts_yes",
+    ]
+    for c in ("proba_H", "proba_D", "proba_A", *goals_out_cols):
         df_played[c] = np.nan
 
     if df_to_predict.empty:
@@ -132,6 +143,14 @@ def predict_upcoming_matches(date_from, date_to):
 
     for i, class_label in enumerate(model.classes_):
         df_pred[f"proba_{class_label}"] = probas[:, i]
+
+    # Buts attendus (regression) -> marchés dérivés (over/under, BTTS) par
+    # calcul de Poisson (goals_markets.py), même matrice de features X_pred
+    # que le modèle H/D/A (mêmes colonnes -> pas de recalcul nécessaire).
+    lambda_home = goals_model_home.predict(X_pred)
+    lambda_away = goals_model_away.predict(X_pred)
+    for key, values in compute_goals_markets(lambda_home, lambda_away).items():
+        df_pred[key] = values
 
     df_result = pd.concat([df_played[OUTPUT_COLS], df_pred[OUTPUT_COLS]], ignore_index=True)
     return df_result.sort_values(["kickoff_utc", "league"])

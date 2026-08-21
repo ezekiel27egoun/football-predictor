@@ -116,6 +116,13 @@ STYLE = """
   font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-muted);
   font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.fp-goals { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 4px 2px 2px 2px; }
+.fp-goals-row { display:flex; justify-content:space-between; align-items:center;
+  padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.fp-goals-row:last-child { border-bottom: none; }
+.fp-goals-row .g-label { color: var(--text-secondary); }
+.fp-goals-row .g-value { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
 .fp-date-header { font: 700 20px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary); margin: 24px 0 4px 0; }
 
@@ -387,6 +394,24 @@ for match_date in sorted(df["date"].unique()):
             </div>
             """
             st.markdown(card, unsafe_allow_html=True)
+
+            with st.expander("⚽ Buts — over/under, BTTS"):
+                home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
+                goals_html = f"""
+                <div class="fp-goals">
+                  <div class="fp-goals-row"><span class="g-label">Buts attendus</span>
+                    <span class="g-value">{home_g:.1f} – {away_g:.1f}</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Plus de 1,5 but</span>
+                    <span class="g-value">{row['proba_over_1_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Plus de 2,5 buts</span>
+                    <span class="g-value">{row['proba_over_2_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Plus de 3,5 buts</span>
+                    <span class="g-value">{row['proba_over_3_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Les deux équipes marquent</span>
+                    <span class="g-value">{row['proba_btts_yes'] * 100:.0f}%</span></div>
+                </div>
+                """
+                st.markdown(goals_html, unsafe_allow_html=True)
 
 if (~df["home_team_known"] | ~df["away_team_known"]).any():
     st.caption("« nouveau » = équipe sans historique dans nos données (promotion récente) — "
