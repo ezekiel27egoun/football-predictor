@@ -55,6 +55,7 @@ feature_cols = [
     or c.endswith("domestic_position")
     or c.endswith("prev_seasons_avg_position")
     or c.endswith("reigning_champion")
+    or c.endswith("team_tracked")
 ]
 
 h2h_avg_cols = [c for c in feature_cols if "h2h_points_avg" in c or "h2h_goal_diff_avg" in c]

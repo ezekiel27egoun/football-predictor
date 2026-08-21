@@ -302,6 +302,24 @@ def compute_elo_ratings(df, k=20, initial_rating=1500, home_advantage=100):
     return df
 
 
+def add_tracked_flag(df_all, df_team_matches):
+    """
+    1 si l'équipe apparaît dans au moins un des 5 championnats domestiques
+    suivis, 0 sinon (club étranger uniquement croisé en Champions League).
+    Sans ça, une équipe qu'on ne suit pas reçoit des valeurs "moyennes" par
+    défaut (classement, points) pour tout ce qu'on ignore d'elle -> ce flag
+    permet au modèle de distinguer "vraiment moyenne" de "aucune donnée
+    dessus", plutôt que de silencieusement confondre les deux.
+    """
+    domestic_teams = set(
+        df_all.loc[df_all["league"].isin(DOMESTIC_LEAGUES), "home_team"]
+    ).union(df_all.loc[df_all["league"].isin(DOMESTIC_LEAGUES), "away_team"])
+
+    df_team_matches = df_team_matches.copy()
+    df_team_matches["team_tracked"] = df_team_matches["team"].isin(domestic_teams).astype(int)
+    return df_team_matches
+
+
 def build_features(df_all):
     """
     Pipeline complet : df_all (1 ligne/match) -> df_features (1 ligne/match
@@ -320,12 +338,13 @@ def build_features(df_all):
     df_team_matches = add_domestic_position_lookup(df_team_matches)
     df_team_matches = add_multi_season_strength(df_team_matches)
     df_team_matches = add_reigning_champion(df_all, df_team_matches)
+    df_team_matches = add_tracked_flag(df_all, df_team_matches)
 
     feature_cols = [c for c in df_team_matches.columns if "_avg_last" in c] + [
         "matches_played_before", "days_since_last_match",
         "h2h_points_avg", "h2h_goal_diff_avg", "h2h_matches_played",
         "league_position", "season_points_before", "domestic_position",
-        "prev_seasons_avg_position", "reigning_champion",
+        "prev_seasons_avg_position", "reigning_champion", "team_tracked",
     ]
 
     home_features = df_team_matches.loc[df_team_matches["is_home"], ["date", "team"] + feature_cols].copy()
