@@ -24,6 +24,16 @@ LEAGUE_LABELS = {
 
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="wide")
 
+
+def pct_color_style(pct):
+    """
+    Dégradé de vert proportionnel à la probabilité : plus c'est probable,
+    plus le vert est vif (color-mix entre --likely et --text-muted, dosé
+    par le pourcentage lui-même) -> un coup d'œil suffit à repérer les
+    valeurs fortes, sans ajouter de seuils arbitraires en dur.
+    """
+    return f'style="color: color-mix(in srgb, var(--likely) {pct:.0f}%, var(--text-muted))"'
+
 # --- Palette (catégorielle, validée contraste + daltonisme, cf. skill dataviz) ---
 STYLE = """
 <style>
@@ -117,15 +127,16 @@ STYLE = """
   font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .fp-goals { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 4px 2px 2px 2px; }
-.fp-goals-group { font: 700 11px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
-  margin: 14px 0 2px 0; }
+.fp-goals-group { font: 800 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 4px 0;
+  background: linear-gradient(90deg, var(--brand-accent) 0%, var(--brand-accent-2) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .fp-goals-group:first-child { margin-top: 0; }
 .fp-goals-row { display:flex; justify-content:space-between; align-items:center;
   padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .fp-goals-row:last-child { border-bottom: none; }
 .fp-goals-row .g-label { color: var(--text-secondary); }
-.fp-goals-row .g-value { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fp-goals-row .g-value { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* Domicile / extérieur face à face (même logique que la carte principale) :
    pourcentage domicile à gauche, seuil au centre, pourcentage extérieur à
@@ -422,30 +433,30 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home">{row['proba_home_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-home" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
                     <span class="g-threshold">0,5 but</span>
-                    <span class="g-away">{row['proba_away_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-away" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home">{row['proba_home_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-home" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
                     <span class="g-threshold">1,5 but</span>
-                    <span class="g-away">{row['proba_away_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-away" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home">{row['proba_home_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-home" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
                     <span class="g-threshold">2,5 buts</span>
-                    <span class="g-away">{row['proba_away_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-away" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
                   </div>
 
-                  <div class="fp-goals-group">Total du match (les deux équipes)</div>
+                  <div class="fp-goals-group">Total du match</div>
                   <div class="fp-goals-row"><span class="g-label">Plus de 1,5 but</span>
-                    <span class="g-value">{row['proba_over_1_5'] * 100:.0f}%</span></div>
+                    <span class="g-value" {pct_color_style(row['proba_over_1_5'] * 100)}>{row['proba_over_1_5'] * 100:.0f}%</span></div>
                   <div class="fp-goals-row"><span class="g-label">Plus de 2,5 buts</span>
-                    <span class="g-value">{row['proba_over_2_5'] * 100:.0f}%</span></div>
+                    <span class="g-value" {pct_color_style(row['proba_over_2_5'] * 100)}>{row['proba_over_2_5'] * 100:.0f}%</span></div>
                   <div class="fp-goals-row"><span class="g-label">Plus de 3,5 buts</span>
-                    <span class="g-value">{row['proba_over_3_5'] * 100:.0f}%</span></div>
-                  <div class="fp-goals-row"><span class="g-label">Les deux équipes marquent</span>
-                    <span class="g-value">{row['proba_btts_yes'] * 100:.0f}%</span></div>
+                    <span class="g-value" {pct_color_style(row['proba_over_3_5'] * 100)}>{row['proba_over_3_5'] * 100:.0f}%</span></div>
+                  <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
+                    <span class="g-value" {pct_color_style(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
                 </div>
                 """
                 st.markdown(goals_html, unsafe_allow_html=True)
