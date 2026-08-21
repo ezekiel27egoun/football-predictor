@@ -22,6 +22,18 @@ LEAGUE_LABELS = {
     "champions_league": "Champions League",
 }
 
+# Palette Okabe-Ito (daltonisme-safe, référence scientifique standard) —
+# une couleur d'identité par compétition, jamais réutilisée pour une
+# probabilité (qui reste sur le système vert/bleu/gris établi ailleurs).
+LEAGUE_COLORS = {
+    "premier_league": "#D55E00",
+    "ligue_1": "#0072B2",
+    "liga": "#E69F00",
+    "bundesliga": "#009E73",
+    "serie_a": "#CC79A7",
+    "champions_league": "#56B4E9",
+}
+
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="wide")
 
 
@@ -76,16 +88,23 @@ STYLE = """
   }
 }
 
-.fp-legend { display:flex; gap:20px; align-items:center; margin: 4px 0 18px 0;
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-secondary); }
-.fp-legend .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+.fp-legend { display:flex; gap:10px; align-items:center; margin: 4px 0 18px 0; flex-wrap: wrap;
+  font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.fp-legend span.chip { display:inline-flex; align-items:center; padding: 5px 12px; border-radius: 20px;
+  background: var(--page-plane); border: 1px solid var(--border); color: var(--text-secondary); }
+.fp-legend .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
 
-.fp-league-header { font: 600 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
-  margin: 18px 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.fp-league-header { display:flex; align-items:center; gap:8px;
+  font: 800 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 22px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid var(--league-color, var(--border)); }
+.fp-league-header .swatch { display:inline-block; width:10px; height:10px; border-radius:3px;
+  background: var(--league-color, var(--text-muted)); flex-shrink:0; }
+.fp-league-header .name { color: var(--text-primary); }
 
-.fp-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
-  padding: 12px 16px; margin-bottom: 10px;
+.fp-card { background: var(--surface-1); border: 1px solid var(--border); border-left: 4px solid var(--league-color, var(--border));
+  border-radius: 12px; padding: 14px 18px; margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(11,11,11,0.05), 0 4px 14px rgba(11,11,11,0.04);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 
 .fp-teams { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; gap: 8px; }
@@ -169,8 +188,9 @@ STYLE = """
 
 .fp-kpis { display:flex; gap:12px; margin: 0 0 20px 0; flex-wrap: wrap; }
 .fp-kpi { flex:1; min-width: 140px; background: var(--surface-1); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 16px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-.fp-kpi .v { font: 700 24px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-primary); }
+  border-top: 3px solid var(--kpi-accent, var(--brand-accent)); border-radius: 10px; padding: 12px 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.fp-kpi .v { font: 800 26px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-primary); }
 .fp-kpi .l { font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-muted); }
 
 .fp-pill { font: 600 11px/1; padding: 4px 8px; border-radius: 20px; white-space: nowrap; }
@@ -292,11 +312,11 @@ confiance_moyenne = f"{max_proba.mean() * 100:.0f}%" if not df_upcoming.empty el
 st.markdown(
     f"""
     <div class="fp-kpis">
-      <div class="fp-kpi"><div class="v">{len(df_upcoming)}</div><div class="l">Matchs à venir</div></div>
-      <div class="fp-kpi"><div class="v">{len(df_played)}</div><div class="l">Matchs joués</div></div>
-      <div class="fp-kpi"><div class="v">{df['league'].nunique()}</div><div class="l">Compétitions</div></div>
-      <div class="fp-kpi"><div class="v">{nb_favoris}</div><div class="l">Favoris nets (≥ 55%)</div></div>
-      <div class="fp-kpi"><div class="v">{confiance_moyenne}</div><div class="l">Confiance moyenne</div></div>
+      <div class="fp-kpi" style="--kpi-accent:var(--brand-accent)"><div class="v">{len(df_upcoming)}</div><div class="l">Matchs à venir</div></div>
+      <div class="fp-kpi" style="--kpi-accent:var(--underdog)"><div class="v">{len(df_played)}</div><div class="l">Matchs joués</div></div>
+      <div class="fp-kpi" style="--kpi-accent:var(--brand-accent-2)"><div class="v">{df['league'].nunique()}</div><div class="l">Compétitions</div></div>
+      <div class="fp-kpi" style="--kpi-accent:var(--likely)"><div class="v">{nb_favoris}</div><div class="l">Favoris nets (≥ 55%)</div></div>
+      <div class="fp-kpi" style="--kpi-accent:var(--warn-accent)"><div class="v">{confiance_moyenne}</div><div class="l">Confiance moyenne</div></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -304,9 +324,9 @@ st.markdown(
 
 st.markdown(
     '<div class="fp-legend">'
-    '<span><span class="dot" style="background:var(--likely)"></span>Équipe qui mène</span>'
-    '<span><span class="dot" style="background:var(--underdog)"></span>Autre équipe</span>'
-    '<span><span class="dot" style="background:var(--unlikely-fill)"></span>Match nul</span>'
+    '<span class="chip"><span class="dot" style="background:var(--likely)"></span>Équipe qui mène</span>'
+    '<span class="chip"><span class="dot" style="background:var(--underdog)"></span>Autre équipe</span>'
+    '<span class="chip"><span class="dot" style="background:var(--unlikely-fill)"></span>Match nul</span>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -320,7 +340,12 @@ for match_date in sorted(df["date"].unique()):
 
     for league in df_day["league"].unique():
         df_league = df_day[df_day["league"] == league]
-        st.markdown(f'<div class="fp-league-header">{LEAGUE_LABELS.get(league, league)}</div>', unsafe_allow_html=True)
+        league_color = LEAGUE_COLORS.get(league, "#898781")
+        st.markdown(
+            f'<div class="fp-league-header" style="--league-color:{league_color}">'
+            f'<span class="swatch"></span><span class="name">{LEAGUE_LABELS.get(league, league)}</span></div>',
+            unsafe_allow_html=True,
+        )
 
         for _, row in df_league.iterrows():
             home_new = "" if row["home_team_known"] else '<span class="fp-new">nouveau</span>'
@@ -341,7 +366,7 @@ for match_date in sorted(df["date"].unique()):
                     home_cls, away_cls = "fp-team", "fp-team away"
 
                 card = f"""
-                <div class="fp-card">
+                <div class="fp-card" style="--league-color:{league_color}">
                   <div class="fp-teams-row">
                     <span class="fp-kickoff">{kickoff_label}</span>
                     <span class="fp-pill played">Terminé</span>
@@ -391,7 +416,7 @@ for match_date in sorted(df["date"].unique()):
             away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
 
             card = f"""
-            <div class="fp-card">
+            <div class="fp-card" style="--league-color:{league_color}">
               <div class="fp-teams-row">
                 <span class="fp-kickoff">{kickoff_label}</span>
                 <span class="fp-pill {pill_class}">{pill_label} · {top_pct:.0f}%</span>
@@ -448,13 +473,6 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-away" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
                   </div>
 
-                  <div class="fp-goals-group">Total du match</div>
-                  <div class="fp-goals-row"><span class="g-label">Plus de 1,5 but</span>
-                    <span class="g-value" {pct_color_style(row['proba_over_1_5'] * 100)}>{row['proba_over_1_5'] * 100:.0f}%</span></div>
-                  <div class="fp-goals-row"><span class="g-label">Plus de 2,5 buts</span>
-                    <span class="g-value" {pct_color_style(row['proba_over_2_5'] * 100)}>{row['proba_over_2_5'] * 100:.0f}%</span></div>
-                  <div class="fp-goals-row"><span class="g-label">Plus de 3,5 buts</span>
-                    <span class="g-value" {pct_color_style(row['proba_over_3_5'] * 100)}>{row['proba_over_3_5'] * 100:.0f}%</span></div>
                   <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
                     <span class="g-value" {pct_color_style(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
                 </div>
