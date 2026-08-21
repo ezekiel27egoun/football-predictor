@@ -50,14 +50,33 @@ feature_cols = [
     or c.endswith("days_since_last_match")
     or "h2h" in c
     or c.endswith("elo_before")
+    or c.endswith("league_position")
+    or c.endswith("season_points_before")
+    or c.endswith("domestic_position")
+    or c.endswith("prev_seasons_avg_position")
+    or c.endswith("reigning_champion")
 ]
 
 h2h_avg_cols = [c for c in feature_cols if "h2h_points_avg" in c or "h2h_goal_diff_avg" in c]
+
+# league_position/domestic_position/prev_seasons_avg_position sont NaN pour
+# ~17% des lignes (première journée d'une équipe dans une saison, club
+# étranger jamais suivi en championnat croisé avec la Ligue des Champions...)
+# -> un dropna direct perdrait ces lignes inutilement. Repli : moyenne
+# globale de la colonne (signal neutre "position/points typiques"), calculée
+# UNIQUEMENT sur le train pour ne pas fuiter d'info de la validation/test.
+position_cols = [
+    c for c in feature_cols
+    if c.endswith("league_position") or c.endswith("season_points_before")
+    or c.endswith("domestic_position") or c.endswith("prev_seasons_avg_position")
+]
+position_col_means = df_train[position_cols].mean()
 
 
 def make_xy(df):
     df_clean = df.copy()
     df_clean[h2h_avg_cols] = df_clean[h2h_avg_cols].fillna(0)
+    df_clean[position_cols] = df_clean[position_cols].fillna(position_col_means)
     df_clean = df_clean.dropna(subset=feature_cols)
     return df_clean[feature_cols], df_clean["result"]
 

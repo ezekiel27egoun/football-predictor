@@ -35,12 +35,25 @@ def compute_league_averages(df_features_all, feature_cols):
     return df_played.groupby("league")[feature_cols].mean()
 
 
+def season_label_from_date(dates):
+    """
+    "season" côté API football-data.org est un identifiant numérique
+    (m["season"]["id"]), pas un label "YYYY-YYYY" comme dans l'historique
+    -> mélanger les deux dans une même colonne cassait tout calcul qui trie/
+    compare les saisons (ex: add_multi_season_strength). Saison européenne =
+    juillet année N -> juin année N+1, dérivée directement de la date du match.
+    """
+    years = dates.dt.year
+    start_years = years.where(dates.dt.month >= 7, years - 1)
+    return start_years.astype(str) + "-" + (start_years + 1).astype(str)
+
+
 def build_phantom_rows(fixtures_df):
     """Convertit les fixtures à venir au format attendu par build_features (schéma de df_all)."""
     phantom = pd.DataFrame({
         "date": fixtures_df["date"],
         "league": fixtures_df["league"],
-        "season": fixtures_df["season"],
+        "season": season_label_from_date(fixtures_df["date"]),
         "home_team": fixtures_df["home_team"],
         "away_team": fixtures_df["away_team"],
         # np.nan (pas pd.NA) : pd.NA force les colonnes en dtype "object" une

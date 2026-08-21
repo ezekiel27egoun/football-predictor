@@ -32,6 +32,26 @@ UCL_SEASONS = [
     "2026-2027",
 ]
 
+# Clubs présents à la fois en C1 (source fbref) et dans un des 5 championnats
+# domestiques (source football-data.co.uk), mais sous un nom différent d'une
+# source à l'autre -> sans ce renommage, le pipeline de features (forme
+# glissante, repos, Elo, classement domestique injecté en C1...) ne relie
+# jamais les matchs de ces clubs entre les deux compétitions, silencieusement.
+# Repéré par fuzzy-matching (cf. build_team_mapping.normalize/best_match)
+# puis vérifié manuellement club par club (les faux positifs du fuzzy-match
+# comme Rangers/Angers ou Celtic/Celta sont volontairement exclus).
+CL_TO_DOMESTIC_NAME = {
+    "Atlético Madrid": "Ath Madrid",
+    "Athletic Club": "Ath Bilbao",
+    "Real Sociedad": "Sociedad",
+    "Manchester City": "Man City",
+    "Manchester Utd": "Man United",
+    "Leicester City": "Leicester",
+    "PSG": "Paris SG",
+    "Gladbach": "M'gladbach",
+    "Frankfurt": "Ein Frankfurt",
+}
+
 RENAME_MAP = {
     "Date": "date",
     "HomeTeam": "home_team",
@@ -154,6 +174,11 @@ def build_champions_league():
         "Round": "stage",
     })
     df_ucl_final["league"] = "champions_league"
+
+    # Aligne les noms des clubs qui jouent aussi dans un de nos 5
+    # championnats domestiques -> voir CL_TO_DOMESTIC_NAME plus haut.
+    df_ucl_final["home_team"] = df_ucl_final["home_team"].replace(CL_TO_DOMESTIC_NAME)
+    df_ucl_final["away_team"] = df_ucl_final["away_team"].replace(CL_TO_DOMESTIC_NAME)
 
     for col in STATS_COLS:
         df_ucl_final[col] = pd.NA
