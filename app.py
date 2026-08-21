@@ -40,9 +40,14 @@ STYLE = """
      ("Dom./Nul/Ext.") et la position, jamais par la couleur seule. */
   --likely:          #1baf7a;
   --unlikely-fill:   #ded9d0;
+  /* Équipe pas favorite mais qui reste une VRAIE équipe (pas le nul) ->
+     sa propre couleur, distincte du gris neutre du nul, et reprise sur
+     son nom pour rester cohérent barre <-> texte. */
+  --underdog:        #2a78d6;
   /* Purement décoratif (titre, liseré de l'avertissement) -> aucun lien
      avec la lecture des probabilités, jamais utilisé sur une barre/valeur. */
   --brand-accent:    #2a78d6;
+  --brand-accent-2:  #e8483d;
   --warn-accent:     #eb6834;
 }
 @media (prefers-color-scheme: dark) {
@@ -54,7 +59,9 @@ STYLE = """
     --border:          rgba(255,255,255,0.10);
     --likely:          #22c589;
     --unlikely-fill:   #3a3934;
+    --underdog:        #3987e5;
     --brand-accent:    #3987e5;
+    --brand-accent-2:  #f05f54;
     --warn-accent:     #d95926;
   }
 }
@@ -77,22 +84,29 @@ STYLE = """
 .fp-team img { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; }
 .fp-team span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fp-vs { color: var(--text-muted); font-size: 12px; padding: 0 10px; flex-shrink: 0; }
+.fp-team .role-tag { display: none; }
 
 /* Écran étroit (mobile) : les noms longs poussaient le "vs" et se
    mélangeaient visuellement avec les probabilités -> équipes empilées
-   verticalement à la place, chacune sur toute la largeur disponible. */
+   verticalement à la place, chacune sur toute la largeur disponible.
+   Une fois empilées, plus rien (position gauche/droite, "vs" au milieu)
+   n'indique qui est domicile/extérieur -> étiquette explicite ajoutée. */
 @media (max-width: 480px) {
   .fp-teams { flex-direction: column; align-items: stretch; }
   .fp-team { justify-content: flex-start; }
   .fp-team.away { flex-direction: row-reverse; justify-content: flex-end; }
   .fp-vs { align-self: center; padding: 2px 0; }
+  .fp-team .role-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--text-muted); background: var(--page-plane);
+    border-radius: 4px; padding: 2px 5px; flex-shrink: 0; }
 }
 .fp-new { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
 
 .fp-bar { display:flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--page-plane); }
 .fp-bar div { height: 100%; }
-.fp-bar .seg-top { background: var(--likely); }
-.fp-bar .seg-rest { background: var(--unlikely-fill); }
+.fp-bar .seg-win { background: var(--likely); }
+.fp-bar .seg-lose { background: var(--underdog); }
+.fp-bar .seg-draw { background: var(--unlikely-fill); }
 .fp-bar div + div { margin-left: 2px; }
 
 .fp-values { display:flex; justify-content:space-between; margin-top: 6px;
@@ -100,17 +114,21 @@ STYLE = """
   font-variant-numeric: tabular-nums; }
 .fp-values .label { color: var(--text-muted); margin-right: 4px; }
 .fp-values .top .label, .fp-values .top .pct { color: var(--text-primary); font-weight: 600; }
+.fp-values .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:0px; }
+.fp-values .dot.win { background: var(--likely); }
+.fp-values .dot.lose { background: var(--underdog); }
+.fp-values .dot.draw { background: var(--unlikely-fill); }
 
 .fp-date-header { font: 700 20px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text-primary); margin: 24px 0 4px 0; }
 
-.fp-hero { margin: 4px 0 6px 0; }
+.fp-hero { margin: 4px 0 6px 0; text-align: center; }
 .fp-hero h1 { font: 800 40px/1.15 system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0; letter-spacing: -0.01em;
-  background: linear-gradient(90deg, var(--brand-accent) 0%, var(--likely) 100%);
+  background: linear-gradient(90deg, var(--brand-accent) 0%, var(--brand-accent-2) 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .fp-byline { font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: var(--text-secondary); margin: 2px 0 18px 0; }
+  color: var(--text-secondary); margin: 2px 0 18px 0; text-align: center; }
 .fp-byline b { color: var(--text-primary); }
 
 .fp-disclaimer { display:flex; gap:10px; align-items:flex-start; background: var(--surface-1);
@@ -133,6 +151,7 @@ STYLE = """
 .fp-teams-row { display:flex; align-items:center; justify-content:space-between; margin-bottom: 6px; }
 .fp-kickoff { font: 600 12px/1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .fp-team.favored { color: var(--likely); }
+.fp-team.underdog { color: var(--underdog); }
 
 .fp-score { font: 700 20px/1; color: var(--text-primary); padding: 0 10px;
   font-variant-numeric: tabular-nums; }
@@ -255,8 +274,9 @@ st.markdown(
 
 st.markdown(
     '<div class="fp-legend">'
-    '<span><span class="dot" style="background:var(--likely)"></span>Issue la plus probable</span>'
-    '<span><span class="dot" style="background:var(--unlikely-fill)"></span>Moins probable</span>'
+    '<span><span class="dot" style="background:var(--likely)"></span>Équipe qui mène</span>'
+    '<span><span class="dot" style="background:var(--underdog)"></span>Autre équipe</span>'
+    '<span><span class="dot" style="background:var(--unlikely-fill)"></span>Match nul</span>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -284,9 +304,9 @@ for match_date in sorted(df["date"].unique()):
                 # Match déjà joué -> score réel, pas de prédiction (inutile)
                 h_score, a_score = int(row["home_score"]), int(row["away_score"])
                 if h_score > a_score:
-                    home_cls, away_cls = "fp-team favored", "fp-team away"
+                    home_cls, away_cls = "fp-team favored", "fp-team away underdog"
                 elif a_score > h_score:
-                    home_cls, away_cls = "fp-team", "fp-team away favored"
+                    home_cls, away_cls = "fp-team underdog", "fp-team away favored"
                 else:
                     home_cls, away_cls = "fp-team", "fp-team away"
 
@@ -298,6 +318,7 @@ for match_date in sorted(df["date"].unique()):
                   </div>
                   <div class="fp-teams">
                     <div class="{home_cls}">
+                      <span class="role-tag">Dom.</span>
                       {f'<img src="{home_crest}">' if home_crest else ""}
                       <span class="name">{row['home_team_api']}</span>{home_new}
                     </div>
@@ -305,6 +326,7 @@ for match_date in sorted(df["date"].unique()):
                     <div class="{away_cls}">
                       <span class="name">{row['away_team_api']}</span>{away_new}
                       {f'<img src="{away_crest}">' if away_crest else ""}
+                      <span class="role-tag">Ext.</span>
                     </div>
                   </div>
                 </div>
@@ -325,14 +347,22 @@ for match_date in sorted(df["date"].unique()):
             else:
                 pill_class, pill_label = "open", "Match ouvert"
 
-            home_cls = "fp-team favored" if top_outcome == "H" else "fp-team"
-            away_cls = "fp-team away favored" if top_outcome == "A" else "fp-team away"
-
-            # Couleur = probabilité (vert = plus probable, gris = le reste),
-            # jamais l'équipe -> identité portée par le texte (Dom./Nul/Ext.)
-            # et la position, pas par la couleur (cf. décision produit).
-            seg_cls = {k: ("seg-top" if k == top_outcome else "seg-rest") for k in ("H", "D", "A")}
+            # Couleur = qui mène entre les deux ÉQUIPES (vert = celle qui
+            # mène, bleu = l'autre) ; le nul reste toujours gris neutre,
+            # qu'il soit ou non l'issue la plus probable des 3 -> ce n'est
+            # pas une "équipe", il ne doit jamais paraître "gagnant".
+            leading_team = "H" if pct_h >= pct_a else "A"
+            role = {
+                "H": "win" if leading_team == "H" else "lose",
+                "A": "win" if leading_team == "A" else "lose",
+                "D": "draw",
+            }
+            seg_cls = {k: f"seg-{role[k]}" for k in role}
+            dot_cls = {k: f"dot {role[k]}" for k in role}
             val_cls = {k: ("top" if k == top_outcome else "") for k in ("H", "D", "A")}
+
+            home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
+            away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
 
             card = f"""
             <div class="fp-card">
@@ -342,6 +372,7 @@ for match_date in sorted(df["date"].unique()):
               </div>
               <div class="fp-teams">
                 <div class="{home_cls}">
+                  <span class="role-tag">Dom.</span>
                   {f'<img src="{home_crest}">' if home_crest else ""}
                   <span class="name">{row['home_team_api']}</span>{home_new}
                 </div>
@@ -349,6 +380,7 @@ for match_date in sorted(df["date"].unique()):
                 <div class="{away_cls}">
                   <span class="name">{row['away_team_api']}</span>{away_new}
                   {f'<img src="{away_crest}">' if away_crest else ""}
+                  <span class="role-tag">Ext.</span>
                 </div>
               </div>
               <div class="fp-bar">
@@ -357,9 +389,9 @@ for match_date in sorted(df["date"].unique()):
                 <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
               </div>
               <div class="fp-values">
-                <span class="{val_cls['H']}"><span class="label">Dom.</span><span class="pct">{pct_h:.0f}%</span></span>
-                <span class="{val_cls['D']}"><span class="label">Nul</span><span class="pct">{pct_d:.0f}%</span></span>
-                <span class="{val_cls['A']}"><span class="label">Ext.</span><span class="pct">{pct_a:.0f}%</span></span>
+                <span class="{val_cls['H']}"><span class="{dot_cls['H']}"></span><span class="label">Dom.</span><span class="pct">{pct_h:.0f}%</span></span>
+                <span class="{val_cls['D']}"><span class="{dot_cls['D']}"></span><span class="label">Nul</span><span class="pct">{pct_d:.0f}%</span></span>
+                <span class="{val_cls['A']}"><span class="{dot_cls['A']}"></span><span class="label">Ext.</span><span class="pct">{pct_a:.0f}%</span></span>
               </div>
             </div>
             """
