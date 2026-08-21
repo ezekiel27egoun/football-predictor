@@ -220,7 +220,12 @@ WINDOW_FUTURE_DAYS = 90
 
 
 @st.cache_data(ttl=3 * 3600)  # 3h de cache -> évite de re-solliciter l'API à chaque interaction
-def get_predictions(date_from, date_to):
+def get_predictions(date_from, date_to, _cache_version=3):
+    # _cache_version : st.cache_data ne suit QUE le code de cette fonction,
+    # pas celui des modules importés (predict_matches.py) -> un changement
+    # dans le pipeline (ex: ajout des colonnes corners) peut ne pas invalider
+    # un résultat déjà en cache. Incrémenter ce chiffre force explicitement
+    # un nouveau calcul après tout changement du pipeline de prédiction.
     return predict_upcoming_matches(str(date_from), str(date_to))
 
 
