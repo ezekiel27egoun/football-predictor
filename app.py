@@ -269,10 +269,12 @@ if "current_day" not in st.session_state:
     st.session_state.current_day = today
 
 max_day = st.session_state.get("fp_expiry_date") if PAYWALL_ENABLED else None
+min_day = st.session_state.get("fp_start_date") if PAYWALL_ENABLED else None
 
 nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
 with nav_prev:
-    if st.button("◀ Jour précédent", use_container_width=True):
+    at_min = min_day is not None and st.session_state.current_day <= min_day
+    if st.button("◀ Jour précédent", use_container_width=True, disabled=at_min):
         st.session_state.current_day -= timedelta(days=1)
 with nav_next:
     at_limit = max_day is not None and st.session_state.current_day >= max_day
@@ -284,6 +286,8 @@ with nav_today:
 
 if max_day is not None and st.session_state.current_day > max_day:
     st.session_state.current_day = max_day
+if min_day is not None and st.session_state.current_day < min_day:
+    st.session_state.current_day = min_day
 
 current_day = st.session_state.current_day
 with nav_label:
@@ -293,7 +297,10 @@ with nav_label:
     )
 
 if max_day is not None:
-    st.caption(f"Ton abonnement donne accès aux matchs jusqu'au {max_day.strftime('%d/%m/%Y')}.")
+    st.caption(
+        f"Ton abonnement donne accès aux matchs du {min_day.strftime('%d/%m/%Y')} "
+        f"au {max_day.strftime('%d/%m/%Y')}."
+    )
 
 with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"):
     df_wide = get_predictions(today - timedelta(days=WINDOW_PAST_DAYS), today + timedelta(days=WINDOW_FUTURE_DAYS))

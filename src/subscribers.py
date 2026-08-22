@@ -131,6 +131,15 @@ def get_expiry_date(phone):
     return end
 
 
+def get_subscription_window(phone):
+    """(date_debut, date_fin) de cet abonné, ou (None, None) si introuvable."""
+    df = load_subscribers()
+    rows = df[df["phone"] == str(phone)]
+    if rows.empty:
+        return None, None
+    return _subscription_window(rows.iloc[0])
+
+
 def register_device(phone, device_id):
     """
     Enregistre cet appareil comme actif pour cet abonné. Au-delà de

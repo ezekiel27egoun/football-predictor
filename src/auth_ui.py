@@ -8,7 +8,13 @@ import uuid
 import streamlit as st
 from extra_streamlit_components import CookieManager
 
-from subscribers import check_login, get_expiry_date, is_device_active, is_subscription_active, register_device
+from subscribers import (
+    check_login,
+    get_subscription_window,
+    is_device_active,
+    is_subscription_active,
+    register_device,
+)
 
 COOKIE_DEVICE_KEY = "fp_device_id"
 COOKIE_PHONE_KEY = "fp_phone"
@@ -43,7 +49,7 @@ def require_subscription():
     if phone and is_device_active(phone, device_id) and is_subscription_active(phone):
         st.session_state.fp_authenticated = True
         st.session_state.fp_phone = phone
-        st.session_state.fp_expiry_date = get_expiry_date(phone)
+        st.session_state.fp_start_date, st.session_state.fp_expiry_date = get_subscription_window(phone)
         return True
 
     st.markdown("### 🔒 Accès abonné")
@@ -60,7 +66,9 @@ def require_subscription():
             cookie_manager.set(COOKIE_PHONE_KEY, phone_input.strip())
             st.session_state.fp_authenticated = True
             st.session_state.fp_phone = phone_input.strip()
-            st.session_state.fp_expiry_date = get_expiry_date(phone_input.strip())
+            st.session_state.fp_start_date, st.session_state.fp_expiry_date = get_subscription_window(
+                phone_input.strip()
+            )
             st.rerun()
         else:
             st.error(error)
