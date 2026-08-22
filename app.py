@@ -258,32 +258,42 @@ st.markdown(
 if PAYWALL_ENABLED and not require_subscription():
     st.stop()
 
-# --- Navigation par semaine (flèches) ---
-# anchor_monday = lundi de la semaine affichée, gardé en session pour ne pas
-# re-fetcher l'API à chaque clic (le fetch large est mis en cache 1h).
+# --- Navigation par jour (flèches) ---
+# current_day = jour affiché, gardé en session pour ne pas re-fetcher l'API
+# à chaque clic (le fetch large est mis en cache). Un abonné ne peut pas
+# naviguer au-delà de sa date de fin d'abonnement (fp_expiry_date, posée par
+# require_subscription()) -> bouton désactivé, avec un garde-fou en plus au
+# cas où (ex: après un renouvellement pour une période plus courte).
 today = date.today()
-if "anchor_monday" not in st.session_state:
-    st.session_state.anchor_monday = today - timedelta(days=today.weekday())
+if "current_day" not in st.session_state:
+    st.session_state.current_day = today
+
+max_day = st.session_state.get("fp_expiry_date") if PAYWALL_ENABLED else None
 
 nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
 with nav_prev:
-    if st.button("◀ Semaine précédente", use_container_width=True):
-        st.session_state.anchor_monday -= timedelta(days=7)
+    if st.button("◀ Jour précédent", use_container_width=True):
+        st.session_state.current_day -= timedelta(days=1)
 with nav_next:
-    if st.button("Semaine suivante ▶", use_container_width=True):
-        st.session_state.anchor_monday += timedelta(days=7)
+    at_limit = max_day is not None and st.session_state.current_day >= max_day
+    if st.button("Jour suivant ▶", use_container_width=True, disabled=at_limit):
+        st.session_state.current_day += timedelta(days=1)
 with nav_today:
     if st.button("Aujourd'hui", use_container_width=True):
-        st.session_state.anchor_monday = today - timedelta(days=today.weekday())
+        st.session_state.current_day = today
 
-week_start = st.session_state.anchor_monday
-week_end = week_start + timedelta(days=6)
+if max_day is not None and st.session_state.current_day > max_day:
+    st.session_state.current_day = max_day
+
+current_day = st.session_state.current_day
 with nav_label:
     st.markdown(
-        f'<div class="fp-week-label">{week_start.strftime("%d %b").capitalize()} '
-        f'→ {week_end.strftime("%d %b %Y").capitalize()}</div>',
+        f'<div class="fp-week-label">{current_day.strftime("%A %d %B %Y").capitalize()}</div>',
         unsafe_allow_html=True,
     )
+
+if max_day is not None:
+    st.caption(f"Ton abonnement donne accès aux matchs jusqu'au {max_day.strftime('%d/%m/%Y')}.")
 
 with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"):
     df_wide = get_predictions(today - timedelta(days=WINDOW_PAST_DAYS), today + timedelta(days=WINDOW_FUTURE_DAYS))
@@ -296,7 +306,7 @@ if df_wide.empty:
 # automatiquement CET/CEST, pas besoin de gérer le changement d'heure à la main.
 df_wide["kickoff_paris"] = df_wide["kickoff_utc"].dt.tz_convert(ZoneInfo("Europe/Paris"))
 
-df = df_wide[(df_wide["date"] >= pd.Timestamp(week_start)) & (df_wide["date"] <= pd.Timestamp(week_end))]
+df = df_wide[df_wide["date"] == pd.Timestamp(current_day)]
 
 col3, = st.columns([1])
 with col3:
