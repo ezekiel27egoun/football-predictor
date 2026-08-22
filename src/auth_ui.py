@@ -33,6 +33,21 @@ def require_subscription():
     # disponible immédiatement -> fait foi pour la session EN COURS ; le
     # cookie ne sert qu'à reconnaître l'appareil lors d'une PROCHAINE visite.
     if st.session_state.get("fp_authenticated"):
+        # Auto-réparation : si la session a été authentifiée par une version
+        # antérieure du code (avant l'ajout des dates), fp_start_date/
+        # fp_expiry_date peuvent manquer alors que fp_authenticated est resté
+        # True -> aucune limite ne serait jamais appliquée. On les recalcule
+        # ici si absentes, à partir du numéro déjà connu. Si même le numéro
+        # est manquant, on force une reconnexion propre plutôt que de rester
+        # authentifié sans savoir de qui il s'agit.
+        if "fp_expiry_date" not in st.session_state:
+            if st.session_state.get("fp_phone"):
+                st.session_state.fp_start_date, st.session_state.fp_expiry_date = get_subscription_window(
+                    st.session_state.fp_phone
+                )
+            else:
+                st.session_state.fp_authenticated = False
+                return False
         return True
 
     cookie_manager = CookieManager(key="fp_cookies")
