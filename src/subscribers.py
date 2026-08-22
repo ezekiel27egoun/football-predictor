@@ -4,12 +4,17 @@ Gestion des abonnés payants (paywall) : liste stockée dans un Google Sheet
 données à ce stade). Colonnes attendues dans la feuille (dans cet ordre) :
 phone, name, pin, start_date, expiry_date, device_tokens.
 
-Variables d'environnement nécessaires (.env, jamais commitées) :
+Variables d'environnement nécessaires (.env en local, secrets Streamlit Cloud
+en ligne -> jamais commitées) :
     GOOGLE_SERVICE_ACCOUNT_FILE : chemin vers le fichier JSON de la clé de
-        service Google (compte de service avec accès à la feuille)
+        service Google (usage local -> le fichier existe sur le disque)
+    GOOGLE_SERVICE_ACCOUNT_JSON : contenu JSON de la clé, en clair (usage
+        Streamlit Cloud -> pas de fichier possible, collé comme secret) ;
+        prioritaire sur GOOGLE_SERVICE_ACCOUNT_FILE s'il est présent
     SUBSCRIBERS_SHEET_ID : identifiant du Google Sheet (dans son URL)
     ADMIN_PASSWORD : mot de passe pour accéder à la page d'administration
 """
+import json
 import os
 import random
 import string
@@ -23,6 +28,7 @@ from google.oauth2.service_account import Credentials
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_DEVICES = 2  # nombre d'appareils actifs autorisés simultanément par abonné
 COLUMNS = ["phone", "name", "pin", "start_date", "expiry_date", "device_tokens"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
 def _service_account_path():
@@ -34,11 +40,20 @@ def _service_account_path():
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def _get_credentials():
+    """
+    En local : fichier .json sur le disque (GOOGLE_SERVICE_ACCOUNT_FILE).
+    Sur Streamlit Cloud : pas de fichier possible -> le contenu JSON collé
+    tel quel comme secret (GOOGLE_SERVICE_ACCOUNT_JSON).
+    """
+    raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if raw_json:
+        return Credentials.from_service_account_info(json.loads(raw_json), scopes=SCOPES)
+    return Credentials.from_service_account_file(str(_service_account_path()), scopes=SCOPES)
+
+
 def _get_worksheet():
-    creds = Credentials.from_service_account_file(
-        str(_service_account_path()),
-        scopes=["https://www.googleapis.com/auth/spreadsheets"],
-    )
+    creds = _get_credentials()
     client = gspread.authorize(creds)
     sheet = client.open_by_key(os.environ["SUBSCRIBERS_SHEET_ID"])
     return sheet.sheet1
