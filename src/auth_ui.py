@@ -20,6 +20,15 @@ def require_subscription():
     reconnu, ou vient de saisir un numéro + PIN valides) -> affiche le
     formulaire de connexion et retourne False sinon.
     """
+    # Le cookie posé par CookieManager met un instant à se synchroniser côté
+    # navigateur (aller-retour du composant) -> juste après une connexion
+    # réussie, le relire immédiatement peut encore renvoyer l'ancienne
+    # valeur (rien ne semble se passer). st.session_state, lui, est
+    # disponible immédiatement -> fait foi pour la session EN COURS ; le
+    # cookie ne sert qu'à reconnaître l'appareil lors d'une PROCHAINE visite.
+    if st.session_state.get("fp_authenticated"):
+        return True
+
     cookie_manager = CookieManager(key="fp_cookies")
     device_id = cookie_manager.get(COOKIE_DEVICE_KEY)
     if device_id is None:
@@ -32,6 +41,7 @@ def require_subscription():
     # tant que l'abonnement est toujours valide (vérifié à chaque visite,
     # pas juste au moment de la connexion).
     if phone and is_device_active(phone, device_id) and is_subscription_active(phone):
+        st.session_state.fp_authenticated = True
         return True
 
     st.markdown("### 🔒 Accès abonné")
@@ -46,6 +56,7 @@ def require_subscription():
         if ok:
             register_device(phone_input.strip(), device_id)
             cookie_manager.set(COOKIE_PHONE_KEY, phone_input.strip())
+            st.session_state.fp_authenticated = True
             st.rerun()
         else:
             st.error(error)
