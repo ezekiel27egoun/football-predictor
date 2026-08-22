@@ -16,7 +16,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from subscribers import add_or_renew_subscriber, load_subscribers  # noqa: E402
+from subscribers import add_or_renew_subscriber, extend_subscription, load_subscribers  # noqa: E402
 
 load_dotenv()
 
@@ -62,6 +62,42 @@ if submitted:
             f"— du {start_date.strftime('%d/%m/%Y')} au {end_date.strftime('%d/%m/%Y')} ({n_days} jour(s))"
         )
         st.info("Copie ce PIN et envoie-le à l'abonné par WhatsApp — c'est le seul moment où il est affiché.")
+
+st.divider()
+st.subheader("Prolonger un abonnement existant (même code)")
+st.caption(
+    "Pour un abonné qui paie AVANT l'expiration de sa période actuelle : "
+    "repousse juste la date de fin, sans générer un nouveau PIN ni le "
+    "déconnecter de ses appareils. À utiliser uniquement si l'abonnement "
+    "n'a pas encore expiré — une fois expiré, utilisez plutôt la section "
+    "ci-dessus (« Générer le PIN »), qui envoie automatiquement un nouveau "
+    "code."
+)
+df_current = load_subscribers()
+if df_current.empty:
+    st.caption("Aucun abonné à prolonger pour l'instant.")
+else:
+    with st.form("extend_subscriber"):
+        phone_to_extend = st.selectbox(
+            "Abonné",
+            options=df_current["phone"],
+            format_func=lambda p: (
+                f"{df_current.loc[df_current['phone'] == p, 'name'].values[0]} ({p}) — "
+                f"expire le {df_current.loc[df_current['phone'] == p, 'expiry_date'].values[0]}"
+            ),
+        )
+        new_end_date = st.date_input("Nouvelle date de fin", value=date.today() + timedelta(days=7))
+        extend_submitted = st.form_submit_button("Prolonger (garder le même code)")
+
+    if extend_submitted:
+        ok = extend_subscription(phone_to_extend.strip(), new_end_date)
+        if ok:
+            st.success(
+                f"Abonnement prolongé jusqu'au {new_end_date.strftime('%d/%m/%Y')} — "
+                "le PIN de l'abonné n'a pas changé, rien à lui renvoyer."
+            )
+        else:
+            st.error("Cet abonné n'a pas été trouvé.")
 
 st.divider()
 st.subheader("Abonnés actuels")

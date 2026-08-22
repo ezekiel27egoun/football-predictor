@@ -99,6 +99,25 @@ def add_or_renew_subscriber(phone, name, start_date, end_date):
     return pin
 
 
+def extend_subscription(phone, new_end_date):
+    """
+    Prolonge un abonné déjà existant SANS régénérer son PIN ni réinitialiser
+    ses appareils reconnus — contrairement à add_or_renew_subscriber(), qui
+    est prévue pour le cas "expiré, nouveau code à renvoyer". Utile pour
+    prolonger avant expiration, sans déconnecter l'abonné ni lui redemander
+    un nouveau code. Ne touche que la colonne expiry_date (E). Retourne
+    True si l'abonné existait et a été mis à jour, False sinon.
+    """
+    ws = _get_worksheet()
+    df = load_subscribers()
+    existing = df.index[df["phone"] == str(phone)]
+    if not len(existing):
+        return False
+    row_number = existing[0] + 2  # +1 en-tête, +1 index 0-based -> 1-based
+    ws.update(f"E{row_number}", [[new_end_date.isoformat()]])
+    return True
+
+
 def _subscription_window(row):
     start = pd.to_datetime(row["start_date"]).date()
     end = pd.to_datetime(row["expiry_date"]).date()
