@@ -503,7 +503,11 @@ for match_date in sorted(df["date"].unique()):
             outcomes = {"H": pct_h, "D": pct_d, "A": pct_a}
             top_outcome = max(outcomes, key=outcomes.get)
             top_pct = outcomes[top_outcome]
-            if top_pct >= 55:
+            if not is_subscriber:
+                # Pastille verte (.strong/.mid) = un signal en soi, même sans
+                # dire quelle équipe -> reste neutre tant que non connecté.
+                pill_class, pill_text = "open", "🔒 Abonnez-vous"
+            elif top_pct >= 55:
                 pill_class, pill_text = "strong", f"Favori net · {top_pct:.0f}%"
             elif top_pct >= 40:
                 pill_class, pill_text = "mid", f"Tendance · {top_pct:.0f}%"
@@ -584,63 +588,69 @@ for match_date in sorted(df["date"].unique()):
             home_name, away_name = row["home_team_api"], row["away_team_api"]
 
             with st.expander("⚽ Buts — over/under, BTTS"):
-                home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
-                goals_html = f"""
-                <div class="fp-goals{lock_cls}">
-                  <div class="fp-goals-row"><span class="g-label">Buts attendus</span>
-                    <span class="g-value">{home_g:.1f} – {away_g:.1f}</span></div>
+                if not is_subscriber:
+                    st.info("🔒 Réservé aux abonnés — connectez-vous pour voir les probabilités de buts.")
+                else:
+                    home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
+                    goals_html = f"""
+                    <div class="fp-goals">
+                      <div class="fp-goals-row"><span class="g-label">Buts attendus</span>
+                        <span class="g-value">{home_g:.1f} – {away_g:.1f}</span></div>
 
-                  <div class="fp-goals-facing">
-                    <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
-                  </div>
-                  <div class="fp-goals-facing">
-                    <span class="g-home val" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
-                    <span class="g-threshold">0,5 but</span>
-                    <span class="g-away val" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
-                  </div>
-                  <div class="fp-goals-facing">
-                    <span class="g-home val" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
-                    <span class="g-threshold">1,5 but</span>
-                    <span class="g-away val" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
-                  </div>
-                  <div class="fp-goals-facing">
-                    <span class="g-home val" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
-                    <span class="g-threshold">2,5 buts</span>
-                    <span class="g-away val" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
-                  </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
+                      </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home val" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
+                        <span class="g-threshold">0,5 but</span>
+                        <span class="g-away val" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
+                      </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home val" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
+                        <span class="g-threshold">1,5 but</span>
+                        <span class="g-away val" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
+                      </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home val" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
+                        <span class="g-threshold">2,5 buts</span>
+                        <span class="g-away val" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
+                      </div>
 
-                  <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
-                    <span class="g-value" {pct_color_style(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
-                </div>
-                """
-                st.markdown(_html(goals_html), unsafe_allow_html=True)
+                      <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
+                        <span class="g-value" {pct_color_style(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
+                    </div>
+                    """
+                    st.markdown(_html(goals_html), unsafe_allow_html=True)
 
             with st.expander("🚩 Corners — over/under"):
-                home_c, away_c = row["expected_home_corners"], row["expected_away_corners"]
-                corners_html = f"""
-                <div class="fp-goals{lock_cls}">
-                  <div class="fp-goals-row"><span class="g-label">Corners attendus</span>
-                    <span class="g-value">{home_c:.1f} – {away_c:.1f}</span></div>
+                if not is_subscriber:
+                    st.info("🔒 Réservé aux abonnés — connectez-vous pour voir les probabilités de corners.")
+                else:
+                    home_c, away_c = row["expected_home_corners"], row["expected_away_corners"]
+                    corners_html = f"""
+                    <div class="fp-goals">
+                      <div class="fp-goals-row"><span class="g-label">Corners attendus</span>
+                        <span class="g-value">{home_c:.1f} – {away_c:.1f}</span></div>
 
-                  <div class="fp-goals-facing">
-                    <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
-                  </div>
-                  <div class="fp-goals-facing">
-                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
-                    <span class="g-threshold">3,5 corners</span>
-                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
-                  </div>
-                  <div class="fp-goals-facing">
-                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
-                    <span class="g-threshold">4,5 corners</span>
-                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
-                  </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
+                      </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home val" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
+                        <span class="g-threshold">3,5 corners</span>
+                        <span class="g-away val" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
+                      </div>
+                      <div class="fp-goals-facing">
+                        <span class="g-home val" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
+                        <span class="g-threshold">4,5 corners</span>
+                        <span class="g-away val" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
+                      </div>
 
-                  <div class="fp-goals-row"><span class="g-label">Total du match — plus de 9,5 corners</span>
-                    <span class="g-value" {pct_color_style(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
-                </div>
-                """
-                st.markdown(_html(corners_html), unsafe_allow_html=True)
+                      <div class="fp-goals-row"><span class="g-label">Total du match — plus de 9,5 corners</span>
+                        <span class="g-value" {pct_color_style(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
+                    </div>
+                    """
+                    st.markdown(_html(corners_html), unsafe_allow_html=True)
 
 if (~df["home_team_known"] | ~df["away_team_known"]).any():
     st.caption("« nouveau » = équipe sans historique dans nos données (promotion récente) — "
