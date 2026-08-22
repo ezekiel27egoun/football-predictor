@@ -163,6 +163,7 @@ STYLE = """
 .fp-bar .seg-win { background: var(--likely); }
 .fp-bar .seg-lose { background: var(--underdog); }
 .fp-bar .seg-draw { background: var(--unlikely-fill); }
+.fp-bar .seg-locked { background: var(--unlikely-fill); }
 .fp-bar div + div { margin-left: 2px; }
 
 /* Positionné exactement au-dessus du segment gris (left/width en % =
@@ -514,26 +515,47 @@ for match_date in sorted(df["date"].unique()):
             # qu'il soit ou non l'issue la plus probable des 3 -> ce n'est
             # pas une "équipe", il ne doit jamais paraître "gagnant".
             leading_team = "H" if pct_h >= pct_a else "A"
-            role = {
-                "H": "win" if leading_team == "H" else "lose",
-                "A": "win" if leading_team == "A" else "lose",
-                "D": "draw",
-            }
-            seg_cls = {k: f"seg-{role[k]}" for k in role}
-            home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
-            away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
-            home_pct_html = f'<span class="pct">{pct_h:.0f}%</span>'
-            away_pct_html = f'<span class="pct">{pct_a:.0f}%</span>'
-            bar_html = f"""
-              <div class="fp-bar-wrap">
-                <div class="fp-bar">
-                  <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
-                  <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
-                  <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
-                </div>
-                <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
-              </div>
-            """
+
+            if is_subscriber:
+                # Couleur = qui mène entre les deux ÉQUIPES (vert = celle qui
+                # mène, bleu = l'autre) ; le nul reste toujours gris neutre,
+                # qu'il soit ou non l'issue la plus probable des 3 -> ce n'est
+                # pas une "équipe", il ne doit jamais paraître "gagnant".
+                role = {
+                    "H": "win" if leading_team == "H" else "lose",
+                    "A": "win" if leading_team == "A" else "lose",
+                    "D": "draw",
+                }
+                seg_cls = {k: f"seg-{role[k]}" for k in role}
+                home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
+                away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
+                home_pct_html = f'<span class="pct">{pct_h:.0f}%</span>'
+                away_pct_html = f'<span class="pct">{pct_a:.0f}%</span>'
+                bar_html = f"""
+                  <div class="fp-bar-wrap">
+                    <div class="fp-bar">
+                      <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
+                      <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
+                      <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
+                    </div>
+                    <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
+                  </div>
+                """
+            else:
+                # Non abonné : ni le flou seul, ni le simple masquage du texte
+                # ne suffisent -> la couleur du nom (vert/bleu) et les
+                # LARGEURS des segments de la barre trahissaient déjà qui est
+                # favori, même flouté. Ici : noms neutres, pas de %, et une
+                # barre pleine d'UNE seule couleur/largeur -> rien à déduire.
+                home_cls, away_cls = "fp-team", "fp-team away"
+                home_pct_html = away_pct_html = ""
+                bar_html = """
+                  <div class="fp-bar-wrap">
+                    <div class="fp-bar">
+                      <div class="seg-locked" style="width:100%"></div>
+                    </div>
+                  </div>
+                """
 
             card = f"""
             <div class="fp-card{lock_cls}" style="--league-color:{league_color}">
