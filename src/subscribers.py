@@ -102,7 +102,7 @@ def check_login(phone, pin):
     if today < start:
         return False, f"Abonnement pas encore actif (à partir du {start.strftime('%d/%m/%Y')})."
     if today > end:
-        return False, "Abonnement expiré — contacte-nous pour le renouveler."
+        return False, "Abonnement expiré — contactez-nous pour le renouveler."
     return True, None
 
 

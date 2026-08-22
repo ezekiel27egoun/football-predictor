@@ -198,6 +198,11 @@ STYLE = """
   font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-secondary); }
 .fp-disclaimer .icon { font-size: 16px; line-height: 1.5; }
 
+.fp-sub-window { display:flex; align-items:center; gap:8px; background: color-mix(in srgb, var(--brand-accent) 10%, var(--surface-1));
+  border: 1px solid var(--border); border-left: 3px solid var(--brand-accent); border-radius: 8px;
+  padding: 8px 14px; margin: 0 0 14px 0;
+  font: 600 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--brand-accent); }
+
 .fp-kpis { display:flex; gap:12px; margin: 0 0 20px 0; flex-wrap: wrap; }
 .fp-kpi { flex:1; min-width: 140px; background: var(--surface-1); border: 1px solid var(--border);
   border-top: 3px solid var(--kpi-accent, var(--brand-accent)); border-radius: 10px; padding: 12px 16px;
@@ -309,13 +314,14 @@ with nav_label:
     )
 
 if max_day is not None:
-    st.caption(
-        f"Ton abonnement donne accès aux matchs du {min_day.strftime('%d/%m/%Y')} "
-        f"au {max_day.strftime('%d/%m/%Y')}."
+    st.markdown(
+        f'<div class="fp-sub-window">📅 Votre abonnement donne accès aux matchs du '
+        f"{min_day.strftime('%d/%m/%Y')} au {max_day.strftime('%d/%m/%Y')}.</div>",
+        unsafe_allow_html=True,
     )
     if current_day == max_day:
         st.warning(
-            f"⏳ Ton abonnement expire le {max_day.strftime('%d/%m/%Y')}, "
+            f"⏳ Votre abonnement expire le {max_day.strftime('%d/%m/%Y')}, "
             "à la fin du dernier match de la journée."
         )
 

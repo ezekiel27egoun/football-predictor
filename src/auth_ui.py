@@ -68,7 +68,7 @@ def require_subscription():
         return True
 
     st.markdown("### 🔒 Accès abonné")
-    st.caption("Entre le numéro et le code reçus par WhatsApp lors de ton abonnement.")
+    st.caption("Entrez le numéro et le code reçus par WhatsApp lors de votre abonnement.")
     with st.form("login_form"):
         phone_input = st.text_input("Numéro de téléphone")
         pin_input = st.text_input("Code PIN", max_chars=4)
