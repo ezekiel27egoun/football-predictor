@@ -275,15 +275,27 @@ nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
 with nav_prev:
     at_min = min_day is not None and st.session_state.current_day <= min_day
     if st.button("◀ Jour précédent", use_container_width=True, disabled=at_min):
-        st.session_state.current_day -= timedelta(days=1)
+        # Le clamp ne repose pas QUE sur "disabled" (un clic juste avant que
+        # l'interface ne se mette à jour peut passer au travers) -> l'ajout
+        # lui-même refuse de sortir de la fenêtre payée, quoi qu'il arrive.
+        candidate = st.session_state.current_day - timedelta(days=1)
+        st.session_state.current_day = max(candidate, min_day) if min_day else candidate
 with nav_next:
     at_limit = max_day is not None and st.session_state.current_day >= max_day
     if st.button("Jour suivant ▶", use_container_width=True, disabled=at_limit):
-        st.session_state.current_day += timedelta(days=1)
+        candidate = st.session_state.current_day + timedelta(days=1)
+        st.session_state.current_day = min(candidate, max_day) if max_day else candidate
 with nav_today:
     if st.button("Aujourd'hui", use_container_width=True):
-        st.session_state.current_day = today
+        clamped_today = today
+        if max_day is not None:
+            clamped_today = min(clamped_today, max_day)
+        if min_day is not None:
+            clamped_today = max(clamped_today, min_day)
+        st.session_state.current_day = clamped_today
 
+# Garde-fou final, quelle que soit la façon dont current_day a été fixé
+# au-dessus (ex: après un changement d'abonnement en cours de session).
 if max_day is not None and st.session_state.current_day > max_day:
     st.session_state.current_day = max_day
 if min_day is not None and st.session_state.current_day < min_day:
