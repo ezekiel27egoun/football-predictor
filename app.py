@@ -313,6 +313,11 @@ if max_day is not None:
         f"Ton abonnement donne accès aux matchs du {min_day.strftime('%d/%m/%Y')} "
         f"au {max_day.strftime('%d/%m/%Y')}."
     )
+    if current_day == max_day:
+        st.warning(
+            f"⏳ Ton abonnement expire le {max_day.strftime('%d/%m/%Y')}, "
+            "à la fin du dernier match de la journée."
+        )
 
 with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"):
     df_wide = get_predictions(today - timedelta(days=WINDOW_PAST_DAYS), today + timedelta(days=WINDOW_FUTURE_DAYS))
