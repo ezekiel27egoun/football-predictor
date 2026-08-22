@@ -58,7 +58,11 @@ def _html(s):
     contenu indenté de 4 espaces ou plus comme un bloc de code littéral, donc
     sans ce dédent le HTML s'affichait tel quel au lieu d'être rendu.
     """
-    return textwrap.dedent(s).strip()
+    # dedent() ne retire que l'indentation COMMUNE à toutes les lignes : un
+    # fragment assemblé à partir de sous-blocs eux-mêmes indentés différemment
+    # (ex: card + bar_html) peut garder des lignes à 4+ espaces même après
+    # dedent -> on retire l'indentation de chaque ligne individuellement.
+    return "\n".join(line.strip() for line in s.strip().splitlines())
 
 
 def pct_color_style(pct):
@@ -489,62 +493,47 @@ for match_date in sorted(df["date"].unique()):
                 continue
 
             pct_h, pct_d, pct_a = row["proba_H"] * 100, row["proba_D"] * 100, row["proba_A"] * 100
+            # Non abonné -> seule la barre (celle qui révèle le favori) est
+            # floutée via CSS (.fp-locked) ; tout le reste de la carte reste
+            # affiché normalement.
             lock_cls = "" if is_subscriber else " fp-locked"
 
-            if is_subscriber:
-                # Issue la plus probable -> pastille de confiance + équipe favorite mise en avant
-                outcomes = {"H": pct_h, "D": pct_d, "A": pct_a}
-                top_outcome = max(outcomes, key=outcomes.get)
-                top_pct = outcomes[top_outcome]
-                if top_pct >= 55:
-                    pill_class, pill_text = "strong", f"Favori net · {top_pct:.0f}%"
-                elif top_pct >= 40:
-                    pill_class, pill_text = "mid", f"Tendance · {top_pct:.0f}%"
-                else:
-                    pill_class, pill_text = "open", f"Match ouvert · {top_pct:.0f}%"
-
-                # Couleur = qui mène entre les deux ÉQUIPES (vert = celle qui
-                # mène, bleu = l'autre) ; le nul reste toujours gris neutre,
-                # qu'il soit ou non l'issue la plus probable des 3 -> ce n'est
-                # pas une "équipe", il ne doit jamais paraître "gagnant".
-                leading_team = "H" if pct_h >= pct_a else "A"
-                role = {
-                    "H": "win" if leading_team == "H" else "lose",
-                    "A": "win" if leading_team == "A" else "lose",
-                    "D": "draw",
-                }
-                seg_cls = {k: f"seg-{role[k]}" for k in role}
-                home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
-                away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
-                home_pct_html = f'<span class="pct">{pct_h:.0f}%</span>'
-                away_pct_html = f'<span class="pct">{pct_a:.0f}%</span>'
-                bar_html = f"""
-                  <div class="fp-bar-wrap">
-                    <div class="fp-bar">
-                      <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
-                      <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
-                      <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
-                    </div>
-                    <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
-                  </div>
-                """
+            # Issue la plus probable -> pastille de confiance + équipe favorite mise en avant
+            outcomes = {"H": pct_h, "D": pct_d, "A": pct_a}
+            top_outcome = max(outcomes, key=outcomes.get)
+            top_pct = outcomes[top_outcome]
+            if top_pct >= 55:
+                pill_class, pill_text = "strong", f"Favori net · {top_pct:.0f}%"
+            elif top_pct >= 40:
+                pill_class, pill_text = "mid", f"Tendance · {top_pct:.0f}%"
             else:
-                # Non abonné : ni les chiffres, ni la couleur qui les trahirait
-                # (vert/bleu indiqueraient déjà qui est favori sans le %) ne
-                # sont calculés -> aperçu générique, rien à deviner.
-                pill_class, pill_text = "open", "🔒 Abonnez-vous"
-                home_cls, away_cls = "fp-team", "fp-team away"
-                home_pct_html = away_pct_html = ""
-                bar_html = """
-                  <div class="fp-bar-wrap">
-                    <div class="fp-bar">
-                      <div class="seg-draw" style="width:33.3%"></div>
-                      <div class="seg-draw" style="width:33.3%"></div>
-                      <div class="seg-draw" style="width:33.4%"></div>
-                    </div>
-                    <div class="fp-draw-caption">🔒 Connectez-vous pour voir les probabilités</div>
-                  </div>
-                """
+                pill_class, pill_text = "open", f"Match ouvert · {top_pct:.0f}%"
+
+            # Couleur = qui mène entre les deux ÉQUIPES (vert = celle qui
+            # mène, bleu = l'autre) ; le nul reste toujours gris neutre,
+            # qu'il soit ou non l'issue la plus probable des 3 -> ce n'est
+            # pas une "équipe", il ne doit jamais paraître "gagnant".
+            leading_team = "H" if pct_h >= pct_a else "A"
+            role = {
+                "H": "win" if leading_team == "H" else "lose",
+                "A": "win" if leading_team == "A" else "lose",
+                "D": "draw",
+            }
+            seg_cls = {k: f"seg-{role[k]}" for k in role}
+            home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
+            away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
+            home_pct_html = f'<span class="pct">{pct_h:.0f}%</span>'
+            away_pct_html = f'<span class="pct">{pct_a:.0f}%</span>'
+            bar_html = f"""
+              <div class="fp-bar-wrap">
+                <div class="fp-bar">
+                  <div class="{seg_cls['H']}" style="width:{pct_h}%"></div>
+                  <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
+                  <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
+                </div>
+                <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
+              </div>
+            """
 
             card = f"""
             <div class="fp-card{lock_cls}" style="--league-color:{league_color}">
@@ -572,13 +561,6 @@ for match_date in sorted(df["date"].unique()):
 
             home_name, away_name = row["home_team_api"], row["away_team_api"]
 
-            # Pour un non-abonné : la valeur réelle est bien affichée (et floutée
-            # via .fp-locked), mais sans dégradé de couleur -> le flou masque le
-            # chiffre, l'absence de couleur empêche de deviner l'équipe favorite
-            # rien qu'à la teinte (le vrai bug remonté précédemment).
-            def _cstyle(pct):
-                return pct_color_style(pct) if is_subscriber else ""
-
             with st.expander("⚽ Buts — over/under, BTTS"):
                 home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
                 goals_html = f"""
@@ -590,23 +572,23 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home val" {_cstyle(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
                     <span class="g-threshold">0,5 but</span>
-                    <span class="g-away val" {_cstyle(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home val" {_cstyle(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
                     <span class="g-threshold">1,5 but</span>
-                    <span class="g-away val" {_cstyle(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home val" {_cstyle(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
                     <span class="g-threshold">2,5 buts</span>
-                    <span class="g-away val" {_cstyle(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
                   </div>
 
                   <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
-                    <span class="g-value" {_cstyle(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
+                    <span class="g-value" {pct_color_style(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
                 </div>
                 """
                 st.markdown(_html(goals_html), unsafe_allow_html=True)
@@ -622,18 +604,18 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home val" {_cstyle(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
                     <span class="g-threshold">3,5 corners</span>
-                    <span class="g-away val" {_cstyle(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home val" {_cstyle(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
                     <span class="g-threshold">4,5 corners</span>
-                    <span class="g-away val" {_cstyle(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
                   </div>
 
                   <div class="fp-goals-row"><span class="g-label">Total du match — plus de 9,5 corners</span>
-                    <span class="g-value" {_cstyle(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
+                    <span class="g-value" {pct_color_style(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
                 </div>
                 """
                 st.markdown(_html(corners_html), unsafe_allow_html=True)
