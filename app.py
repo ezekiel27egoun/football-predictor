@@ -203,6 +203,25 @@ STYLE = """
   padding: 8px 14px; margin: 0 0 14px 0;
   font: 600 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--brand-accent); }
 
+.fp-teaser-banner { background: color-mix(in srgb, var(--warn-accent) 12%, var(--surface-1));
+  border: 1px solid var(--border); border-left: 3px solid var(--warn-accent); border-radius: 8px;
+  padding: 10px 14px; margin: 0 0 18px 0;
+  font: 600 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text-primary); }
+
+/* Aperçu pour les non-abonnés : équipes/heures restent lisibles, mais tout
+   ce qui a de la valeur (probabilités, barre, pastille) reste flouté ->
+   incite à l'abonnement plutôt que de cacher totalement la page. Le score
+   des matchs déjà joués reste visible (résultat public, pas une prédiction
+   à protéger -> fait partie de la vitrine/bilan de performance). */
+.fp-card.fp-locked .pct,
+.fp-card.fp-locked .fp-bar,
+.fp-card.fp-locked .fp-draw-caption,
+.fp-card.fp-locked .fp-pill { filter: blur(6px); user-select: none; }
+.fp-goals.fp-locked .g-value,
+.fp-goals.fp-locked .g-home.val,
+.fp-goals.fp-locked .g-away.val,
+.fp-goals.fp-locked .pct { filter: blur(6px); user-select: none; }
+
 .fp-kpis { display:flex; gap:12px; margin: 0 0 20px 0; flex-wrap: wrap; }
 .fp-kpi { flex:1; min-width: 140px; background: var(--surface-1); border: 1px solid var(--border);
   border-top: 3px solid var(--kpi-accent, var(--brand-accent)); border-radius: 10px; padding: 12px 16px;
@@ -260,21 +279,31 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if PAYWALL_ENABLED and not require_subscription():
-    st.stop()
+# Visiteur non abonné : le site reste consultable (noms d'équipes, structure),
+# mais les probabilités restent floutées -> incite à s'abonner plutôt que de
+# bloquer complètement la page. Une fois connecté, tout redevient net.
+is_subscriber = require_subscription() if PAYWALL_ENABLED else True
+
+if PAYWALL_ENABLED and not is_subscriber:
+    st.markdown(
+        '<div class="fp-teaser-banner">🔒 Les probabilités sont floutées tant que vous n\'êtes pas '
+        "connecté(e) — abonnez-vous pour un accès exclusif en clair à tous les matchs.</div>",
+        unsafe_allow_html=True,
+    )
 
 # --- Navigation par jour (flèches) ---
 # current_day = jour affiché, gardé en session pour ne pas re-fetcher l'API
 # à chaque clic (le fetch large est mis en cache). Un abonné ne peut pas
 # naviguer au-delà de sa date de fin d'abonnement (fp_expiry_date, posée par
 # require_subscription()) -> bouton désactivé, avec un garde-fou en plus au
-# cas où (ex: après un renouvellement pour une période plus courte).
+# cas où (ex: après un renouvellement pour une période plus courte). Un
+# visiteur non connecté navigue librement (tout reste flouté de toute façon).
 today = date.today()
 if "current_day" not in st.session_state:
     st.session_state.current_day = today
 
-max_day = st.session_state.get("fp_expiry_date") if PAYWALL_ENABLED else None
-min_day = st.session_state.get("fp_start_date") if PAYWALL_ENABLED else None
+max_day = st.session_state.get("fp_expiry_date") if (PAYWALL_ENABLED and is_subscriber) else None
+min_day = st.session_state.get("fp_start_date") if (PAYWALL_ENABLED and is_subscriber) else None
 
 nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
 with nav_prev:
@@ -474,9 +503,10 @@ for match_date in sorted(df["date"].unique()):
 
             home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
             away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
+            lock_cls = "" if is_subscriber else " fp-locked"
 
             card = f"""
-            <div class="fp-card" style="--league-color:{league_color}">
+            <div class="fp-card{lock_cls}" style="--league-color:{league_color}">
               <div class="fp-teams-row">
                 <span class="fp-kickoff">{kickoff_label}</span>
                 <span class="fp-pill {pill_class}">{pill_label} · {top_pct:.0f}%</span>
@@ -510,7 +540,7 @@ for match_date in sorted(df["date"].unique()):
                 home_g, away_g = row["expected_home_goals"], row["expected_away_goals"]
                 home_name, away_name = row["home_team_api"], row["away_team_api"]
                 goals_html = f"""
-                <div class="fp-goals">
+                <div class="fp-goals{lock_cls}">
                   <div class="fp-goals-row"><span class="g-label">Buts attendus</span>
                     <span class="g-value">{home_g:.1f} – {away_g:.1f}</span></div>
 
@@ -518,19 +548,19 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_0_5'] * 100)}>{row['proba_home_over_0_5'] * 100:.0f}%</span>
                     <span class="g-threshold">0,5 but</span>
-                    <span class="g-away" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_0_5'] * 100)}>{row['proba_away_over_0_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_1_5'] * 100)}>{row['proba_home_over_1_5'] * 100:.0f}%</span>
                     <span class="g-threshold">1,5 but</span>
-                    <span class="g-away" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_1_5'] * 100)}>{row['proba_away_over_1_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_over_2_5'] * 100)}>{row['proba_home_over_2_5'] * 100:.0f}%</span>
                     <span class="g-threshold">2,5 buts</span>
-                    <span class="g-away" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_over_2_5'] * 100)}>{row['proba_away_over_2_5'] * 100:.0f}%</span>
                   </div>
 
                   <div class="fp-goals-row"><span class="g-label">Les deux équipes vont marquer</span>
@@ -542,7 +572,7 @@ for match_date in sorted(df["date"].unique()):
             with st.expander("🚩 Corners — over/under"):
                 home_c, away_c = row["expected_home_corners"], row["expected_away_corners"]
                 corners_html = f"""
-                <div class="fp-goals">
+                <div class="fp-goals{lock_cls}">
                   <div class="fp-goals-row"><span class="g-label">Corners attendus</span>
                     <span class="g-value">{home_c:.1f} – {away_c:.1f}</span></div>
 
@@ -550,14 +580,14 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_3_5'] * 100)}>{row['proba_home_corners_over_3_5'] * 100:.0f}%</span>
                     <span class="g-threshold">3,5 corners</span>
-                    <span class="g-away" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_3_5'] * 100)}>{row['proba_away_corners_over_3_5'] * 100:.0f}%</span>
                   </div>
                   <div class="fp-goals-facing">
-                    <span class="g-home" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
+                    <span class="g-home val" {pct_color_style(row['proba_home_corners_over_4_5'] * 100)}>{row['proba_home_corners_over_4_5'] * 100:.0f}%</span>
                     <span class="g-threshold">4,5 corners</span>
-                    <span class="g-away" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_corners_over_4_5'] * 100)}>{row['proba_away_corners_over_4_5'] * 100:.0f}%</span>
                   </div>
 
                   <div class="fp-goals-row"><span class="g-label">Total du match — plus de 9,5 corners</span>
