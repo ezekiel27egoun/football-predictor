@@ -4,6 +4,7 @@ championnats européens + Champions League.
 """
 import os
 import sys
+import textwrap
 from datetime import date, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -47,6 +48,17 @@ LEAGUE_COLORS = {
 }
 
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="wide")
+
+
+def _html(s):
+    """
+    Les blocs HTML injectés via st.markdown(unsafe_allow_html=True) sont des
+    f-strings écrites à l'intérieur de boucles/if imbriqués -> elles héritent
+    de l'indentation Python (parfois 12-20 espaces). Markdown traite tout
+    contenu indenté de 4 espaces ou plus comme un bloc de code littéral, donc
+    sans ce dédent le HTML s'affichait tel quel au lieu d'être rendu.
+    """
+    return textwrap.dedent(s).strip()
 
 
 def pct_color_style(pct):
@@ -473,7 +485,7 @@ for match_date in sorted(df["date"].unique()):
                   </div>
                 </div>
                 """
-                st.markdown(card, unsafe_allow_html=True)
+                st.markdown(_html(card), unsafe_allow_html=True)
                 continue
 
             pct_h, pct_d, pct_a = row["proba_H"] * 100, row["proba_D"] * 100, row["proba_A"] * 100
@@ -556,7 +568,7 @@ for match_date in sorted(df["date"].unique()):
               {bar_html}
             </div>
             """
-            st.markdown(card, unsafe_allow_html=True)
+            st.markdown(_html(card), unsafe_allow_html=True)
 
             home_name, away_name = row["home_team_api"], row["away_team_api"]
 
@@ -597,7 +609,7 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-value" {_cstyle(row['proba_btts_yes'] * 100)}>{row['proba_btts_yes'] * 100:.0f}%</span></div>
                 </div>
                 """
-                st.markdown(goals_html, unsafe_allow_html=True)
+                st.markdown(_html(goals_html), unsafe_allow_html=True)
 
             with st.expander("🚩 Corners — over/under"):
                 home_c, away_c = row["expected_home_corners"], row["expected_away_corners"]
@@ -624,7 +636,7 @@ for match_date in sorted(df["date"].unique()):
                     <span class="g-value" {_cstyle(row['proba_corners_over_9_5'] * 100)}>{row['proba_corners_over_9_5'] * 100:.0f}%</span></div>
                 </div>
                 """
-                st.markdown(corners_html, unsafe_allow_html=True)
+                st.markdown(_html(corners_html), unsafe_allow_html=True)
 
 if (~df["home_team_known"] | ~df["away_team_known"]).any():
     st.caption("« nouveau » = équipe sans historique dans nos données (promotion récente) — "
