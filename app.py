@@ -2,6 +2,7 @@
 App Streamlit : probabilités H/D/A pour les matchs à venir des 5 grands
 championnats européens + Champions League.
 """
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -9,9 +10,20 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 from predict_matches import predict_upcoming_matches  # noqa: E402
+
+# Paywall : activé uniquement si les identifiants Google Sheet sont présents
+# (.env / secrets) -> permet de garder l'app en accès libre tant que cette
+# configuration n'est pas faite (ex: pendant la semaine de test), sans code
+# conditionnel à retirer/remettre à la main plus tard.
+PAYWALL_ENABLED = bool(os.environ.get("SUBSCRIBERS_SHEET_ID"))
+if PAYWALL_ENABLED:
+    from auth_ui import require_subscription  # noqa: E402
 
 LEAGUE_LABELS = {
     "premier_league": "Premier League",
@@ -242,6 +254,9 @@ st.markdown(
     'incitation au pari sportif.</span></div>',
     unsafe_allow_html=True,
 )
+
+if PAYWALL_ENABLED and not require_subscription():
+    st.stop()
 
 # --- Navigation par semaine (flèches) ---
 # anchor_monday = lundi de la semaine affichée, gardé en session pour ne pas
