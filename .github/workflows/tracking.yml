@@ -1,0 +1,57 @@
+name: Suivi automatique des pronostics
+
+# Deux rythmes différents, volontairement :
+# - --predict (nouveau fichier de prédictions sur les 7 prochains jours)
+#   tourne une fois par SEMAINE -> le relancer chaque jour dupliquerait le
+#   même match dans plusieurs fichiers (une fois par jour où il apparaît
+#   dans la fenêtre de 7 jours), ce qui fausserait les comptages.
+# - --update / --daily-report (résultats réels + rapport) tournent chaque
+#   JOUR -> sans risque, ne fait que compléter les lignes encore vides.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # chaque lundi 06h00 UTC -> nouvelles prédictions de la semaine
+    - cron: "0 22 * * *"  # chaque jour 22h00 UTC -> résultats + rapport
+  workflow_dispatch: {}   # bouton "Run workflow" manuel sur GitHub, pour tester sans attendre
+
+permissions:
+  contents: write
+
+jobs:
+  tracking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installe les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Génère les prédictions de la semaine (--predict)
+        if: github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch'
+        env:
+          FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        working-directory: src
+        run: python weekly_tracking.py --predict
+
+      - name: Met à jour les résultats réels (--update)
+        env:
+          FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        working-directory: src
+        run: python weekly_tracking.py --update
+
+      - name: Affiche le rapport du jour (modèle vs bookmaker)
+        working-directory: src
+        run: python weekly_tracking.py --daily-report
+
+      - name: Enregistre les fichiers mis à jour
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/tracking/
+          git diff --cached --quiet || git commit -m "Suivi automatique : mise à jour des pronostics/résultats"
+          git push
