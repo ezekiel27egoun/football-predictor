@@ -1,10 +1,15 @@
 name: Suivi automatique des pronostics
 
 # Deux rythmes différents, volontairement :
-# - --predict (nouveau fichier de prédictions sur les 7 prochains jours)
-#   tourne une fois par SEMAINE -> le relancer chaque jour dupliquerait le
-#   même match dans plusieurs fichiers (une fois par jour où il apparaît
-#   dans la fenêtre de 7 jours), ce qui fausserait les comptages.
+# - update_historical_data.py + --predict (rafraîchit la forme récente des
+#   équipes, puis génère un nouveau fichier de prédictions sur les 7
+#   prochains jours) tournent une fois par SEMAINE -> relancer --predict
+#   chaque jour dupliquerait le même match dans plusieurs fichiers (une fois
+#   par jour où il apparaît dans la fenêtre de 7 jours), ce qui fausserait
+#   les comptages. Le modèle lui-même (rf_v8.joblib et les autres .joblib)
+#   n'est PAS réentraîné ici -> il reste figé tant que personne ne relance
+#   manuellement train_final_model.py et consorts ; seules les features en
+#   entrée (forme, Elo, classement) sont tenues à jour.
 # - --update / --daily-report (résultats réels + rapport) tournent PLUSIEURS
 #   FOIS par jour (toutes les 4h) -> sans risque, ne fait que compléter les
 #   lignes encore vides. Nécessaire car un run unique en soirée raterait les
@@ -32,6 +37,16 @@ jobs:
       - name: Installe les dépendances
         run: pip install -r requirements.txt
 
+      - name: Rafraîchit l'historique (forme récente des équipes)
+        # Sans ça, les FEATURES (forme des 5/10 derniers matchs, Elo,
+        # classement...) resteraient figées à la dernière mise à jour
+        # manuelle -> le modèle (lui, ne change jamais tout seul) recevrait
+        # des données de plus en plus obsolètes semaine après semaine. Tourne
+        # juste avant --predict, une fois par semaine (comme --predict).
+        if: github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch'
+        working-directory: src
+        run: python update_historical_data.py
+
       - name: Génère les prédictions de la semaine (--predict)
         if: github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch'
         env:
@@ -55,6 +70,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/tracking/
-          git diff --cached --quiet || git commit -m "Suivi automatique : mise à jour des pronostics/résultats"
+          git add data/tracking/ data/processed/ data/raw/
+          git diff --cached --quiet || git commit -m "Suivi automatique : mise à jour des pronostics/résultats/historique"
           git push
