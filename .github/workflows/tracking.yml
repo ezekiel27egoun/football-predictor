@@ -5,13 +5,16 @@ name: Suivi automatique des pronostics
 #   tourne une fois par SEMAINE -> le relancer chaque jour dupliquerait le
 #   même match dans plusieurs fichiers (une fois par jour où il apparaît
 #   dans la fenêtre de 7 jours), ce qui fausserait les comptages.
-# - --update / --daily-report (résultats réels + rapport) tournent chaque
-#   JOUR -> sans risque, ne fait que compléter les lignes encore vides.
+# - --update / --daily-report (résultats réels + rapport) tournent PLUSIEURS
+#   FOIS par jour (toutes les 4h) -> sans risque, ne fait que compléter les
+#   lignes encore vides. Nécessaire car un run unique en soirée raterait les
+#   matchs à coup d'envoi tardif (Liga 22h CET, prolongations, retards...) ;
+#   le passage suivant les rattrape simplement quelques heures plus tard.
 on:
   schedule:
-    - cron: "0 6 * * 1"   # chaque lundi 06h00 UTC -> nouvelles prédictions de la semaine
-    - cron: "0 22 * * *"  # chaque jour 22h00 UTC -> résultats + rapport
-  workflow_dispatch: {}   # bouton "Run workflow" manuel sur GitHub, pour tester sans attendre
+    - cron: "0 6 * * 1"        # chaque lundi 06h00 UTC -> nouvelles prédictions de la semaine
+    - cron: "0 2,6,10,14,18,22 * * *"  # toutes les 4h -> résultats + rapport
+  workflow_dispatch: {}        # bouton "Run workflow" manuel sur GitHub, pour tester sans attendre
 
 permissions:
   contents: write
