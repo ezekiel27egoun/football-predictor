@@ -1,2 +1,3 @@
-semaine,n_matchs_resolus,accuracy_modele,log_loss_modele,log_loss_bookmaker,brier_modele,brier_bookmaker
-2026-08-12,4,0.5,1.0829922574373685,1.091295471162686,0.655320801952216,0.6578584480917068
+semaine,n_matchs_resolus,accuracy_modele,log_loss_modele,log_loss_bookmaker,brier_modele,brier_bookmaker,n_correct_modele,n_avec_cote,n_correct_bookmaker,n_over_2_5,n_correct_over_2_5,n_btts,n_correct_btts,n_corners_9_5,n_correct_corners_9_5
+2026-08-12,6,0.6666666666666666,1.0037434293680123,0.9092179121733018,0.6006031269281715,0.5322718625701747,4.0,4.0,2.0,0.0,0.0,0.0,0.0,0.0,0.0
+2026-08-17,23,0.5652173913043478,0.9930371798720862,1.0031963893474751,0.5922278321753671,0.5938707304134367,13.0,18.0,8.0,0.0,0.0,0.0,0.0,0.0,0.0
