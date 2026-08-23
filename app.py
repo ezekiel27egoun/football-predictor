@@ -308,24 +308,50 @@ if PAYWALL_ENABLED and not is_subscriber:
         unsafe_allow_html=True,
     )
 
-# --- Jour affiché : toujours "aujourd'hui", jamais gardé en session ---
-# date.today() est recalculé à chaque exécution du script (Streamlit relance
-# tout le fichier à chaque interaction/rechargement) -> pas besoin de logique
-# de bascule à minuit : dès qu'une page se recharge après minuit, la date du
-# jour a naturellement changé, donc les matchs affichés aussi. Ancienne
-# navigation par flèches (jour précédent/suivant) retirée à la demande.
+# --- Jour affiché : "aujourd'hui" par défaut, navigable en arrière ---
+# today est recalculé à chaque exécution du script (Streamlit relance tout
+# le fichier à chaque interaction/rechargement) -> pas de bascule à minuit à
+# coder : dès qu'une page se recharge après minuit, current_day avance tout
+# seul. On ne garde en session qu'un DÉCALAGE (days_back), jamais une date
+# absolue -> "hier" reste "hier par rapport à maintenant" même si la session
+# survit à un changement de jour, plutôt que de figer une vieille date.
+# Seul le passé est navigable (pour revoir les scores) ; le futur ne l'est
+# plus (le jour affiché par défaut est toujours aujourd'hui).
 today = date.today()
-current_day = today
+if "days_back" not in st.session_state:
+    st.session_state.days_back = 0
 
-st.markdown(
-    f'<div class="fp-week-label">{current_day.strftime("%A %d %B %Y").capitalize()}</div>',
-    unsafe_allow_html=True,
-)
+min_day = st.session_state.get("fp_start_date") if (PAYWALL_ENABLED and is_subscriber) else None
+
+nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
+with nav_prev:
+    candidate_day = today - timedelta(days=st.session_state.days_back + 1)
+    at_min = min_day is not None and candidate_day < min_day
+    if st.button("◀ Jour précédent", use_container_width=True, disabled=at_min):
+        st.session_state.days_back += 1
+with nav_next:
+    if st.button("Jour suivant ▶", use_container_width=True, disabled=st.session_state.days_back <= 0):
+        st.session_state.days_back -= 1
+with nav_today:
+    if st.button("Aujourd'hui", use_container_width=True):
+        st.session_state.days_back = 0
+
+current_day = today - timedelta(days=st.session_state.days_back)
+# Garde-fou final (ex: reprise de session après un renouvellement d'abonnement
+# qui a changé fp_start_date) -> ne repose pas que sur "disabled" ci-dessus.
+if min_day is not None and current_day < min_day:
+    current_day = min_day
+    st.session_state.days_back = (today - min_day).days
+
+with nav_label:
+    st.markdown(
+        f'<div class="fp-week-label">{current_day.strftime("%A %d %B %Y").capitalize()}</div>',
+        unsafe_allow_html=True,
+    )
 
 if PAYWALL_ENABLED and is_subscriber:
     max_day = st.session_state.get("fp_expiry_date")
-    min_day = st.session_state.get("fp_start_date")
-    if max_day is not None:
+    if max_day is not None and min_day is not None:
         st.markdown(
             f'<div class="fp-sub-window">📅 Votre abonnement donne accès aux matchs du '
             f"{min_day.strftime('%d/%m/%Y')} au {max_day.strftime('%d/%m/%Y')}.</div>",
