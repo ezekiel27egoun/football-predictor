@@ -24,7 +24,11 @@ COMPETITIONS = {
 
 
 def _get_headers():
-    token = os.environ.get("FOOTBALL_DATA_API_TOKEN")
+    # .strip() : un secret copié-collé (ex: GitHub Actions, .env) embarque
+    # parfois un retour à la ligne en trop -> un header HTTP ne peut pas
+    # contenir de \n, ce qui fait planter la requête avec une erreur peu
+    # explicite ("Invalid header value") plutôt qu'un message clair.
+    token = os.environ.get("FOOTBALL_DATA_API_TOKEN", "").strip() or None
     if not token:
         raise RuntimeError("FOOTBALL_DATA_API_TOKEN manquant : vérifie le fichier .env")
     return {"X-Auth-Token": token}

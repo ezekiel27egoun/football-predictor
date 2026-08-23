@@ -76,7 +76,10 @@ PREDICTIONS_FILENAME_RE = re.compile(r"predictions_(\d{4}-\d{2}-\d{2})\.csv$")
 # ------------------------------------------------------------------
 
 def get_odds_api_key():
-    key = os.environ.get("ODDS_API_KEY")
+    # .strip() : même précaution que pour FOOTBALL_DATA_API_TOKEN -> un
+    # secret copié-collé (GitHub Actions, .env) peut embarquer un retour à
+    # la ligne en trop.
+    key = os.environ.get("ODDS_API_KEY", "").strip() or None
     if not key:
         print("ATTENTION : ODDS_API_KEY absente du .env -> les colonnes de cotes resteront vides.")
     return key
