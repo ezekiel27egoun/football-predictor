@@ -308,68 +308,34 @@ if PAYWALL_ENABLED and not is_subscriber:
         unsafe_allow_html=True,
     )
 
-# --- Navigation par jour (flèches) ---
-# current_day = jour affiché, gardé en session pour ne pas re-fetcher l'API
-# à chaque clic (le fetch large est mis en cache). Un abonné ne peut pas
-# naviguer au-delà de sa date de fin d'abonnement (fp_expiry_date, posée par
-# require_subscription()) -> bouton désactivé, avec un garde-fou en plus au
-# cas où (ex: après un renouvellement pour une période plus courte). Un
-# visiteur non connecté navigue librement (tout reste flouté de toute façon).
+# --- Jour affiché : toujours "aujourd'hui", jamais gardé en session ---
+# date.today() est recalculé à chaque exécution du script (Streamlit relance
+# tout le fichier à chaque interaction/rechargement) -> pas besoin de logique
+# de bascule à minuit : dès qu'une page se recharge après minuit, la date du
+# jour a naturellement changé, donc les matchs affichés aussi. Ancienne
+# navigation par flèches (jour précédent/suivant) retirée à la demande.
 today = date.today()
-if "current_day" not in st.session_state:
-    st.session_state.current_day = today
+current_day = today
 
-max_day = st.session_state.get("fp_expiry_date") if (PAYWALL_ENABLED and is_subscriber) else None
-min_day = st.session_state.get("fp_start_date") if (PAYWALL_ENABLED and is_subscriber) else None
+st.markdown(
+    f'<div class="fp-week-label">{current_day.strftime("%A %d %B %Y").capitalize()}</div>',
+    unsafe_allow_html=True,
+)
 
-nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
-with nav_prev:
-    at_min = min_day is not None and st.session_state.current_day <= min_day
-    if st.button("◀ Jour précédent", use_container_width=True, disabled=at_min):
-        # Le clamp ne repose pas QUE sur "disabled" (un clic juste avant que
-        # l'interface ne se mette à jour peut passer au travers) -> l'ajout
-        # lui-même refuse de sortir de la fenêtre payée, quoi qu'il arrive.
-        candidate = st.session_state.current_day - timedelta(days=1)
-        st.session_state.current_day = max(candidate, min_day) if min_day else candidate
-with nav_next:
-    at_limit = max_day is not None and st.session_state.current_day >= max_day
-    if st.button("Jour suivant ▶", use_container_width=True, disabled=at_limit):
-        candidate = st.session_state.current_day + timedelta(days=1)
-        st.session_state.current_day = min(candidate, max_day) if max_day else candidate
-with nav_today:
-    if st.button("Aujourd'hui", use_container_width=True):
-        clamped_today = today
-        if max_day is not None:
-            clamped_today = min(clamped_today, max_day)
-        if min_day is not None:
-            clamped_today = max(clamped_today, min_day)
-        st.session_state.current_day = clamped_today
-
-# Garde-fou final, quelle que soit la façon dont current_day a été fixé
-# au-dessus (ex: après un changement d'abonnement en cours de session).
-if max_day is not None and st.session_state.current_day > max_day:
-    st.session_state.current_day = max_day
-if min_day is not None and st.session_state.current_day < min_day:
-    st.session_state.current_day = min_day
-
-current_day = st.session_state.current_day
-with nav_label:
-    st.markdown(
-        f'<div class="fp-week-label">{current_day.strftime("%A %d %B %Y").capitalize()}</div>',
-        unsafe_allow_html=True,
-    )
-
-if max_day is not None:
-    st.markdown(
-        f'<div class="fp-sub-window">📅 Votre abonnement donne accès aux matchs du '
-        f"{min_day.strftime('%d/%m/%Y')} au {max_day.strftime('%d/%m/%Y')}.</div>",
-        unsafe_allow_html=True,
-    )
-    if current_day == max_day:
-        st.warning(
-            f"⏳ Votre abonnement expire le {max_day.strftime('%d/%m/%Y')}, "
-            "à la fin du dernier match de la journée."
+if PAYWALL_ENABLED and is_subscriber:
+    max_day = st.session_state.get("fp_expiry_date")
+    min_day = st.session_state.get("fp_start_date")
+    if max_day is not None:
+        st.markdown(
+            f'<div class="fp-sub-window">📅 Votre abonnement donne accès aux matchs du '
+            f"{min_day.strftime('%d/%m/%Y')} au {max_day.strftime('%d/%m/%Y')}.</div>",
+            unsafe_allow_html=True,
         )
+        if current_day == max_day:
+            st.warning(
+                f"⏳ Votre abonnement expire le {max_day.strftime('%d/%m/%Y')}, "
+                "à la fin du dernier match de la journée."
+            )
 
 with st.spinner("Récupération des matchs (première fois seulement, ~1min)…"):
     df_wide = get_predictions(today - timedelta(days=WINDOW_PAST_DAYS), today + timedelta(days=WINDOW_FUTURE_DAYS))
