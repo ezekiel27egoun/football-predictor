@@ -238,14 +238,36 @@ def run_predict(date_from, date_to):
         return None
 
     # predict_upcoming_matches retourne aussi les matchs déjà joués (proba_* à
-    # NaN) -> on ne garde que ceux à venir, qui sont l'objet du tracking.
+    # NaN) -> on ne garde que ceux à venir/en cours, qui sont l'objet du
+    # tracking (un match "en cours" a un statut différent de "FINISHED" ->
+    # proba_H reste renseignée pour lui aussi, géré séparément juste après).
     df = df[df["proba_H"].notna()].copy()
     if df.empty:
         print("Tous les matchs de la période sont déjà joués -> rien à prédire.")
         return None
 
+    # Cotes bookmaker : UNIQUEMENT pour les matchs qui n'ont pas encore
+    # commencé. The Odds API renvoie les cotes EN COURS pour un match déjà
+    # lancé (le prix évolue avec le score) -> les comparer à une probabilité
+    # calculée avant coup d'envoi n'aurait aucun sens (ex: cote à 1.11 pour
+    # une équipe qui mène déjà largement). --predict tourne normalement une
+    # fois par semaine (les matchs sont encore loin), mais un déclenchement
+    # manuel (tests, workflow_dispatch) peut retomber en pleine journée de
+    # matchs déjà commencés -> ce filtre les protège dans tous les cas.
+    now_utc = pd.Timestamp.now(tz="UTC")
+    not_started = df["kickoff_utc"] > now_utc
+    n_skipped = int((~not_started).sum())
+    if n_skipped:
+        print(f"{n_skipped} match(s) déjà commencé(s) -> pas de cote récupérée pour eux (auraient été des cotes live, pas pré-match).")
+
     api_key = get_odds_api_key()
-    df = attach_odds(df, api_key)
+    df["cote_home"] = np.nan
+    df["cote_draw"] = np.nan
+    df["cote_away"] = np.nan
+    if not_started.any():
+        odds_cols = ["cote_home", "cote_draw", "cote_away"]
+        subset = attach_odds(df.loc[not_started].drop(columns=odds_cols).copy(), api_key)
+        df.loc[not_started, odds_cols] = subset[odds_cols]
 
     df["prediction_modele"] = df[["proba_H", "proba_D", "proba_A"]].idxmax(axis=1).str.replace("proba_", "")
     # Over/Under, BTTS -> "prédiction" = le côté que le modèle juge le plus
