@@ -43,9 +43,16 @@ def _get_with_retry(url, params=None, max_retries=3):
     for attempt in range(max_retries + 1):
         resp = requests.get(url, headers=_get_headers(), params=params)
         if resp.status_code != 429:
+            # raise_for_status() seul ne montre que le code HTTP (ex: "400
+            # Client Error") -> le corps de la réponse contient le vrai
+            # message de l'API (souvent bien plus parlant), à afficher
+            # explicitement avant de laisser l'erreur remonter.
+            if not resp.ok:
+                print(f"Réponse API ({resp.status_code}) : {resp.text[:500]}")
             resp.raise_for_status()
             return resp
         if attempt == max_retries:
+            print(f"Réponse API ({resp.status_code}) : {resp.text[:500]}")
             resp.raise_for_status()  # dernière tentative -> on laisse l'erreur remonter
         wait = int(resp.headers.get("Retry-After", 60))
         print(f"Quota API dépassé (429), nouvelle tentative dans {wait}s...")
