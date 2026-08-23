@@ -12,6 +12,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from cards_markets import compute_cards_markets
 from corners_markets import compute_corners_markets
 from feature_engineering import build_features
 from fetch_fixtures import get_upcoming_fixtures
@@ -26,6 +27,9 @@ GOALS_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "goals_home.joblib"
 GOALS_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "goals_away.joblib"
 CORNERS_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "corners_home.joblib"
 CORNERS_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "corners_away.joblib"
+CARDS_YELLOW_HOME_MODEL_PATH = PROJECT_ROOT / "models" / "cards_yellow_home.joblib"
+CARDS_YELLOW_AWAY_MODEL_PATH = PROJECT_ROOT / "models" / "cards_yellow_away.joblib"
+CARDS_RED_TOTAL_MODEL_PATH = PROJECT_ROOT / "models" / "cards_red_total.joblib"
 HISTORICAL_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "matches_all_raw.csv"
 
 
@@ -88,6 +92,11 @@ OUTPUT_COLS = [
     "proba_home_corners_over_3_5", "proba_home_corners_over_4_5",
     "proba_away_corners_over_3_5", "proba_away_corners_over_4_5",
     "proba_corners_over_8_5", "proba_corners_over_9_5", "proba_corners_over_10_5",
+    "expected_home_yellow_cards", "expected_away_yellow_cards",
+    "proba_home_yellow_over_1_5", "proba_home_yellow_over_2_5",
+    "proba_away_yellow_over_1_5", "proba_away_yellow_over_2_5",
+    "proba_yellow_over_3_5", "proba_yellow_over_4_5",
+    "expected_red_cards", "proba_red_card_in_match",
 ]
 
 
@@ -106,6 +115,9 @@ def predict_upcoming_matches(date_from, date_to):
     goals_model_away = joblib.load(GOALS_AWAY_MODEL_PATH)
     corners_model_home = joblib.load(CORNERS_HOME_MODEL_PATH)
     corners_model_away = joblib.load(CORNERS_AWAY_MODEL_PATH)
+    cards_yellow_model_home = joblib.load(CARDS_YELLOW_HOME_MODEL_PATH)
+    cards_yellow_model_away = joblib.load(CARDS_YELLOW_AWAY_MODEL_PATH)
+    cards_red_model_total = joblib.load(CARDS_RED_TOTAL_MODEL_PATH)
 
     fixtures_df = get_upcoming_fixtures(date_from, date_to, status=None)
     if fixtures_df.empty:
@@ -124,6 +136,11 @@ def predict_upcoming_matches(date_from, date_to):
         "proba_home_corners_over_3_5", "proba_home_corners_over_4_5",
         "proba_away_corners_over_3_5", "proba_away_corners_over_4_5",
         "proba_corners_over_8_5", "proba_corners_over_9_5", "proba_corners_over_10_5",
+        "expected_home_yellow_cards", "expected_away_yellow_cards",
+        "proba_home_yellow_over_1_5", "proba_home_yellow_over_2_5",
+        "proba_away_yellow_over_1_5", "proba_away_yellow_over_2_5",
+        "proba_yellow_over_3_5", "proba_yellow_over_4_5",
+        "expected_red_cards", "proba_red_card_in_match",
     ]
     for c in ("proba_H", "proba_D", "proba_A", *derived_out_cols):
         df_played[c] = np.nan
@@ -177,6 +194,18 @@ def predict_upcoming_matches(date_from, date_to):
     corners_lambda_home = corners_model_home.predict(X_pred)
     corners_lambda_away = corners_model_away.predict(X_pred)
     for key, values in compute_corners_markets(corners_lambda_home, corners_lambda_away).items():
+        df_pred[key] = values
+
+    # Cartons -> mêmes principes (Poisson). Jaunes par équipe, rouges en un
+    # seul total match (trop rare pour un découpage par équipe fiable, cf.
+    # cards_markets.py). Même absence de données Champions League que pour
+    # les corners, gérée de la même façon (repli moyenne de ligue).
+    cards_lambda_yellow_home = cards_yellow_model_home.predict(X_pred)
+    cards_lambda_yellow_away = cards_yellow_model_away.predict(X_pred)
+    cards_lambda_red_total = cards_red_model_total.predict(X_pred)
+    for key, values in compute_cards_markets(
+        cards_lambda_yellow_home, cards_lambda_yellow_away, cards_lambda_red_total
+    ).items():
         df_pred[key] = values
 
     df_result = pd.concat([df_played[OUTPUT_COLS], df_pred[OUTPUT_COLS]], ignore_index=True)

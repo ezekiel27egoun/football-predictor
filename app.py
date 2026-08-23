@@ -273,7 +273,7 @@ WINDOW_FUTURE_DAYS = 90
 
 
 @st.cache_data(ttl=3 * 3600)  # 3h de cache -> évite de re-solliciter l'API à chaque interaction
-def get_predictions(date_from, date_to, _cache_version=3):
+def get_predictions(date_from, date_to, _cache_version=4):
     # _cache_version : st.cache_data ne suit QUE le code de cette fonction,
     # pas celui des modules importés (predict_matches.py) -> un changement
     # dans le pipeline (ex: ajout des colonnes corners) peut ne pas invalider
@@ -637,6 +637,36 @@ for match_date in sorted(df["date"].unique()):
                 </div>
                 """
                 st.markdown(_html(corners_html), unsafe_allow_html=True)
+
+            with st.expander("🟨🟥 Cartons — jaunes et rouge"):
+                home_y, away_y = row["expected_home_yellow_cards"], row["expected_away_yellow_cards"]
+                cards_html = f"""
+                <div class="fp-goals{lock_cls}">
+                  <div class="fp-goals-row"><span class="g-label">Jaunes attendus</span>
+                    <span class="g-value">{home_y:.1f} – {away_y:.1f}</span></div>
+
+                  <div class="fp-goals-facing">
+                    <span class="g-home">{home_name}</span><span></span><span class="g-away">{away_name}</span>
+                  </div>
+                  <div class="fp-goals-facing">
+                    <span class="g-home val" {pct_color_style(row['proba_home_yellow_over_1_5'] * 100)}>{row['proba_home_yellow_over_1_5'] * 100:.0f}%</span>
+                    <span class="g-threshold">1,5 jaune</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_yellow_over_1_5'] * 100)}>{row['proba_away_yellow_over_1_5'] * 100:.0f}%</span>
+                  </div>
+                  <div class="fp-goals-facing">
+                    <span class="g-home val" {pct_color_style(row['proba_home_yellow_over_2_5'] * 100)}>{row['proba_home_yellow_over_2_5'] * 100:.0f}%</span>
+                    <span class="g-threshold">2,5 jaunes</span>
+                    <span class="g-away val" {pct_color_style(row['proba_away_yellow_over_2_5'] * 100)}>{row['proba_away_yellow_over_2_5'] * 100:.0f}%</span>
+                  </div>
+
+                  <div class="fp-goals-row"><span class="g-label">Total du match — plus de 4,5 jaunes</span>
+                    <span class="g-value" {pct_color_style(row['proba_yellow_over_4_5'] * 100)}>{row['proba_yellow_over_4_5'] * 100:.0f}%</span></div>
+
+                  <div class="fp-goals-row"><span class="g-label">Au moins un carton rouge dans le match</span>
+                    <span class="g-value" {pct_color_style(row['proba_red_card_in_match'] * 100)}>{row['proba_red_card_in_match'] * 100:.0f}%</span></div>
+                </div>
+                """
+                st.markdown(_html(cards_html), unsafe_allow_html=True)
 
 if (~df["home_team_known"] | ~df["away_team_known"]).any():
     st.caption("« nouveau » = équipe sans historique dans nos données (promotion récente) — "

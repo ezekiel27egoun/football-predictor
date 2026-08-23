@@ -275,6 +275,8 @@ def run_predict(date_from, date_to):
     df["prediction_over_2_5"] = np.where(df["proba_over_2_5"] > 0.5, "Over", "Under")
     df["prediction_btts"] = np.where(df["proba_btts_yes"] > 0.5, "Oui", "Non")
     df["prediction_corners_over_9_5"] = np.where(df["proba_corners_over_9_5"] > 0.5, "Over", "Under")
+    df["prediction_yellow_over_4_5"] = np.where(df["proba_yellow_over_4_5"] > 0.5, "Over", "Under")
+    df["prediction_red_card_in_match"] = np.where(df["proba_red_card_in_match"] > 0.5, "Oui", "Non")
 
     df_out = pd.DataFrame({
         "date": df["date"].dt.strftime("%Y-%m-%d"),
@@ -308,6 +310,17 @@ def run_predict(date_from, date_to):
         "prediction_corners_over_9_5": df["prediction_corners_over_9_5"],
         "resultat_corners_over_9_5": pd.NA,
         "corners_over_9_5_correcte": pd.NA,
+        # Cartons (jaunes total match + "au moins un rouge") -> réel venant
+        # de la même source séparée que les corners (football-data.co.uk),
+        # voir attach_real_cards().
+        "proba_yellow_over_4_5": df["proba_yellow_over_4_5"],
+        "prediction_yellow_over_4_5": df["prediction_yellow_over_4_5"],
+        "resultat_yellow_over_4_5": pd.NA,
+        "yellow_over_4_5_correcte": pd.NA,
+        "proba_red_card_in_match": df["proba_red_card_in_match"],
+        "prediction_red_card_in_match": df["prediction_red_card_in_match"],
+        "resultat_red_card_in_match": pd.NA,
+        "red_card_in_match_correcte": pd.NA,
     })
 
     TRACKING_DIR.mkdir(parents=True, exist_ok=True)
@@ -400,6 +413,10 @@ NEW_TRACKING_COLS = [
     "proba_btts_yes", "prediction_btts", "resultat_btts", "btts_correcte",
     "proba_corners_over_9_5", "prediction_corners_over_9_5",
     "resultat_corners_over_9_5", "corners_over_9_5_correcte",
+    "proba_yellow_over_4_5", "prediction_yellow_over_4_5",
+    "resultat_yellow_over_4_5", "yellow_over_4_5_correcte",
+    "proba_red_card_in_match", "prediction_red_card_in_match",
+    "resultat_red_card_in_match", "red_card_in_match_correcte",
 ]
 
 
@@ -462,6 +479,75 @@ def attach_real_corners(df, pending_mask):
     return n_filled
 
 
+def fetch_real_cards(date_from, date_to):
+    """
+    Vrais cartons (jaunes + rouges) des matchs déjà joués, même source et
+    mêmes limites que fetch_real_corners() -> historique football-data.co.uk,
+    absent pour la Champions League, best-effort si pas encore rafraîchi.
+    """
+    path = PROJECT_ROOT / "data" / "processed" / "matches_all_raw.csv"
+    cols = ["date", "league", "home_team", "away_team",
+            "home_yellow_cards", "away_yellow_cards", "home_red_cards", "away_red_cards"]
+    if not path.exists():
+        return pd.DataFrame(columns=cols)
+    hist = pd.read_csv(path, parse_dates=["date"])
+    mask = (hist["date"] >= pd.Timestamp(date_from)) & (hist["date"] <= pd.Timestamp(date_to))
+    hist = hist[mask].dropna(subset=["home_yellow_cards", "away_yellow_cards", "home_red_cards", "away_red_cards"])
+    return hist[cols]
+
+
+def attach_real_cards(df, pending_mask):
+    """
+    Complète resultat_yellow_over_4_5/yellow_over_4_5_correcte et
+    resultat_red_card_in_match/red_card_in_match_correcte -> même principe
+    qu'attach_real_corners() (mapping nom API -> nom historique, puis
+    recherche dans l'historique football-data.co.uk). Retourne le nombre de
+    lignes complétées (jaunes + rouges comptés ensemble, une ligne = un match
+    résolu pour les deux marchés à la fois, même source de données).
+    """
+    to_fill = pending_mask & (
+        df["resultat_yellow_over_4_5"].isna() | df["resultat_red_card_in_match"].isna()
+    )
+    if not to_fill.any():
+        return 0
+
+    date_min, date_max = df.loc[to_fill, "date"].min(), df.loc[to_fill, "date"].max()
+    cards_hist = fetch_real_cards(date_min, date_max)
+    if cards_hist.empty:
+        return 0
+
+    mapping = load_team_mapping()
+    n_filled = 0
+    for idx in df.index[to_fill]:
+        row = df.loc[idx]
+        home_hist = mapping.get((row["league"], row["home_team"]), row["home_team"])
+        away_hist = mapping.get((row["league"], row["away_team"]), row["away_team"])
+        match = cards_hist[
+            (cards_hist["date"] == row["date"])
+            & (cards_hist["league"] == row["league"])
+            & (cards_hist["home_team"] == home_hist)
+            & (cards_hist["away_team"] == away_hist)
+        ]
+        if match.empty:
+            continue
+        m = match.iloc[0]
+        total_yellow = m["home_yellow_cards"] + m["away_yellow_cards"]
+        total_red = m["home_red_cards"] + m["away_red_cards"]
+
+        yellow_side = "Over" if total_yellow > 4.5 else "Under"
+        df.at[idx, "resultat_yellow_over_4_5"] = yellow_side
+        if pd.notna(row.get("prediction_yellow_over_4_5")):
+            df.at[idx, "yellow_over_4_5_correcte"] = yellow_side == row["prediction_yellow_over_4_5"]
+
+        red_side = "Oui" if total_red >= 1 else "Non"
+        df.at[idx, "resultat_red_card_in_match"] = red_side
+        if pd.notna(row.get("prediction_red_card_in_match")):
+            df.at[idx, "red_card_in_match_correcte"] = red_side == row["prediction_red_card_in_match"]
+
+        n_filled += 1
+    return n_filled
+
+
 def _backfill_bookmaker(df):
     """Calcule prediction_bookmaker/bookmaker_correcte pour les lignes déjà
     résolues (resultat_reel connu) qui ont une cote mais n'ont pas encore ce
@@ -497,6 +583,7 @@ def run_update_file(path):
     # aucun nouveau résultat à aller chercher (sinon jamais recalculé).
     n_backfilled = _backfill_bookmaker(df)
     n_backfilled += attach_real_corners(df, df["resultat_reel"].notna())
+    n_backfilled += attach_real_cards(df, df["resultat_reel"].notna())
 
     pending = df["resultat_reel"].isna()
     if not pending.any():
@@ -566,6 +653,9 @@ def run_update_file(path):
     # --- Corners : over/under 9,5 (source séparée, best-effort) ---
     n_corners_filled = attach_real_corners(df, newly_resolved)
 
+    # --- Cartons : jaunes total + rouge (même source séparée, best-effort) ---
+    n_cards_filled = attach_real_cards(df, newly_resolved)
+
     # newly_resolved peut re-toucher des lignes déjà résolues avant cet appel
     # (la fenêtre de dates fetchée n'est pas limitée aux seules lignes pending) ->
     # ne compter comme "nouveau" que les lignes réellement passées de pending à
@@ -578,7 +668,8 @@ def run_update_file(path):
     df.to_csv(path, index=False)
     print(
         f"{path.name} : {n_new} résultat(s) 1N2 mis à jour "
-        f"({int(still_pending.sum())} encore en attente), {n_corners_filled} corner(s) complété(s)."
+        f"({int(still_pending.sum())} encore en attente), {n_corners_filled} corner(s) et "
+        f"{n_cards_filled} carton(s) complété(s)."
     )
     return df
 
@@ -626,6 +717,10 @@ def compute_week_metrics(df):
         "n_correct_btts": 0,
         "n_corners_9_5": 0,
         "n_correct_corners_9_5": 0,
+        "n_yellow_4_5": 0,
+        "n_correct_yellow_4_5": 0,
+        "n_red_match": 0,
+        "n_correct_red_match": 0,
     }
     if resolved.empty:
         return metrics
@@ -670,6 +765,16 @@ def compute_week_metrics(df):
         m = resolved["corners_over_9_5_correcte"].notna()
         metrics["n_corners_9_5"] = int(m.sum())
         metrics["n_correct_corners_9_5"] = int(resolved.loc[m, "corners_over_9_5_correcte"].sum())
+
+    if "yellow_over_4_5_correcte" in resolved.columns:
+        m = resolved["yellow_over_4_5_correcte"].notna()
+        metrics["n_yellow_4_5"] = int(m.sum())
+        metrics["n_correct_yellow_4_5"] = int(resolved.loc[m, "yellow_over_4_5_correcte"].sum())
+
+    if "red_card_in_match_correcte" in resolved.columns:
+        m = resolved["red_card_in_match_correcte"].notna()
+        metrics["n_red_match"] = int(m.sum())
+        metrics["n_correct_red_match"] = int(resolved.loc[m, "red_card_in_match_correcte"].sum())
 
     return metrics
 
@@ -743,7 +848,10 @@ def run_daily_report():
         print("Aucun match résolu pour l'instant.")
         return
 
-    print(f"{'Date':<12} {'1N2 modèle':<14} {'1N2 bookmaker':<15} {'Over 2,5':<12} {'BTTS':<12} {'Corners 9,5':<12}")
+    print(
+        f"{'Date':<12} {'1N2 modèle':<14} {'1N2 bookmaker':<15} {'Over 2,5':<12} {'BTTS':<12} "
+        f"{'Corners 9,5':<12} {'Jaunes 4,5':<12} {'Rouge match':<12}"
+    )
     for d, day_df in resolved.groupby(resolved["date"].dt.strftime("%Y-%m-%d")):
         modele = _fmt_rate((day_df["prediction_modele"] == day_df["resultat_reel"]).sum(), len(day_df))
         with_odds = day_df["bookmaker_correcte"].notna() if "bookmaker_correcte" in day_df else pd.Series(dtype=bool)
@@ -754,7 +862,14 @@ def run_daily_report():
         btts = _fmt_rate(bt.sum(), bt.notna().sum())
         co = day_df.get("corners_over_9_5_correcte", pd.Series(dtype=bool))
         corners = _fmt_rate(co.sum(), co.notna().sum())
-        print(f"{d:<12} {modele:<14} {bookmaker:<15} {over25:<12} {btts:<12} {corners:<12}")
+        ye = day_df.get("yellow_over_4_5_correcte", pd.Series(dtype=bool))
+        yellow = _fmt_rate(ye.sum(), ye.notna().sum())
+        re_ = day_df.get("red_card_in_match_correcte", pd.Series(dtype=bool))
+        red = _fmt_rate(re_.sum(), re_.notna().sum())
+        print(
+            f"{d:<12} {modele:<14} {bookmaker:<15} {over25:<12} {btts:<12} "
+            f"{corners:<12} {yellow:<12} {red:<12}"
+        )
 
     n = len(resolved)
     n_mod = int((resolved["prediction_modele"] == resolved["resultat_reel"]).sum())
