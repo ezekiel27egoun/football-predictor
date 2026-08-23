@@ -10,3 +10,4 @@ scipy==1.16.3
 gspread==6.2.1
 google-auth==2.56.3
 extra-streamlit-components==0.1.81
+lxml==5.3.0
