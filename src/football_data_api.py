@@ -36,12 +36,26 @@ def _get_headers():
 
 def _get_with_retry(url, params=None, max_retries=3):
     """
-    GET avec nouvelle tentative automatique sur 429 (quota API dépassé,
-    10 requêtes/minute en plan gratuit) -> attend le délai indiqué par
-    l'API (en-tête Retry-After), ou 60s par défaut si absent.
+    GET avec nouvelle tentative automatique sur :
+    - erreur réseau/TLS transitoire (ex: connexion coupée en plein
+      handshake TLS, timeout) -> observé en prod sur GitHub Actions
+      (SSLEOFError vers api.football-data.org) sans qu'aucun retry ne
+      rattrape le coup, ce qui faisait planter tout le run pour un simple
+      aléa réseau ponctuel côté infra.
+    - 429 (quota API dépassé, 10 requêtes/minute en plan gratuit) -> attend
+      le délai indiqué par l'API (en-tête Retry-After), ou 60s par défaut
+      si absent.
     """
     for attempt in range(max_retries + 1):
-        resp = requests.get(url, headers=_get_headers(), params=params)
+        try:
+            resp = requests.get(url, headers=_get_headers(), params=params, timeout=30)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            if attempt == max_retries:
+                raise
+            wait = 5 * (attempt + 1)
+            print(f"Erreur réseau ({exc.__class__.__name__}), nouvelle tentative dans {wait}s...")
+            time.sleep(wait)
+            continue
         if resp.status_code != 429:
             # raise_for_status() seul ne montre que le code HTTP (ex: "400
             # Client Error") -> le corps de la réponse contient le vrai
