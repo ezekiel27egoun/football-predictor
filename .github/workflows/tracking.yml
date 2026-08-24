@@ -17,9 +17,22 @@ name: Suivi automatique des pronostics
 #   le passage suivant les rattrape simplement quelques heures plus tard.
 on:
   schedule:
-    - cron: "0 6 * * 1"        # chaque lundi 06h00 UTC -> nouvelles prédictions de la semaine
+    # 05h30 (pas 06h00) -> évite de tomber pile sur un créneau "toutes les 4h"
+    # ci-dessous (0 6 * * 1 collisionnait avec 6h de la liste 2,6,10,...) :
+    # les deux runs poussaient sur main en même temps, le second était
+    # rejeté par git (push non fast-forward) -> échec observé le 24/08.
+    - cron: "30 5 * * 1"        # chaque lundi 05h30 UTC -> nouvelles prédictions de la semaine
     - cron: "0 2,6,10,14,18,22 * * *"  # toutes les 4h -> résultats + rapport
   workflow_dispatch: {}        # bouton "Run workflow" manuel sur GitHub, pour tester sans attendre
+
+# Ceinture ET bretelles vis-à-vis de la collision ci-dessus : même avec des
+# horaires qui ne se chevauchent plus en théorie, un run manuel
+# (workflow_dispatch) ou un run qui traîne peut quand même en croiser un
+# autre -> un seul run de ce workflow à la fois, les suivants attendent en
+# file plutôt que de se marcher dessus sur le push.
+concurrency:
+  group: tracking
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -43,12 +56,12 @@ jobs:
         # manuelle -> le modèle (lui, ne change jamais tout seul) recevrait
         # des données de plus en plus obsolètes semaine après semaine. Tourne
         # juste avant --predict, une fois par semaine (comme --predict).
-        if: github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch'
+        if: github.event.schedule == '30 5 * * 1' || github.event_name == 'workflow_dispatch'
         working-directory: src
         run: python update_historical_data.py
 
       - name: Génère les prédictions de la semaine (--predict)
-        if: github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch'
+        if: github.event.schedule == '30 5 * * 1' || github.event_name == 'workflow_dispatch'
         env:
           FOOTBALL_DATA_API_TOKEN: ${{ secrets.FOOTBALL_DATA_API_TOKEN }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
@@ -72,4 +85,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/tracking/ data/processed/ data/raw/
           git diff --cached --quiet || git commit -m "Suivi automatique : mise à jour des pronostics/résultats/historique"
-          git push
+          # Filet de sécurité en plus du "concurrency" ci-dessus : si main a
+          # quand même bougé entre le checkout et ce push (ex: un
+          # workflow_dispatch manuel lancé pendant un run programmé), on
+          # rebase sur la dernière version distante et on retente, plutôt que
+          # d'échouer tout le run pour un simple push non fast-forward.
+          for i in 1 2 3; do
+            git push && break
+            echo "Push rejeté (tentative $i/3) -> rebase sur origin/main et nouvel essai..."
+            git pull --rebase origin main
+          done
