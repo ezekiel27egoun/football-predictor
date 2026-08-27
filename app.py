@@ -65,6 +65,27 @@ def _html(s):
     return "\n".join(line.strip() for line in s.strip().splitlines())
 
 
+def round_hda_to_100(pct_h, pct_d, pct_a):
+    """
+    Arrondit les 3 pourcentages H/D/A à l'entier tout en garantissant que
+    leur somme affichée reste exactement 100 -> arrondir chacun séparément
+    (ex: 56,7 / 26,5 / 16,7 -> 57/27/17) peut donner 101 ou 99 au total,
+    ce qui ressemble à une erreur de calcul aux yeux d'un utilisateur alors
+    que ce n'est qu'un artefact d'arrondi (remonté en test, cf. capture
+    Barcelone à 57+27+17=101%). Méthode du plus grand reste (Hamilton) :
+    on arrondit à l'entier inférieur, puis on distribue les points
+    manquants aux valeurs dont la partie décimale perdue était la plus
+    grande.
+    """
+    values = {"H": pct_h, "D": pct_d, "A": pct_a}
+    floors = {k: int(v) for k, v in values.items()}
+    remainders = {k: v - floors[k] for k, v in values.items()}
+    deficit = 100 - sum(floors.values())
+    for k in sorted(remainders, key=remainders.get, reverse=True)[:deficit]:
+        floors[k] += 1
+    return floors["H"], floors["D"], floors["A"]
+
+
 def pct_color_style(pct):
     """
     Dégradé de vert proportionnel à la probabilité : plus c'est probable,
@@ -486,25 +507,31 @@ for match_date in sorted(df["date"].unique()):
                 continue
 
             pct_h, pct_d, pct_a = row["proba_H"] * 100, row["proba_D"] * 100, row["proba_A"] * 100
+            # Valeurs entières utilisées pour tout ce qui s'affiche en TEXTE
+            # (pastille, %, légende du nul) -> garanties de sommer à 100,
+            # contrairement à pct_h/pct_d/pct_a arrondis indépendamment.
+            # Les largeurs de barre, elles, gardent les valeurs exactes
+            # (pas besoin d'être des entiers pour un rendu visuel fluide).
+            pct_h_r, pct_d_r, pct_a_r = round_hda_to_100(pct_h, pct_d, pct_a)
             # Non abonné -> seule la barre (celle qui révèle le favori) est
             # floutée via CSS (.fp-locked) ; tout le reste de la carte reste
             # affiché normalement.
             lock_cls = "" if is_subscriber else " fp-locked"
 
             # Issue la plus probable -> pastille de confiance + équipe favorite mise en avant
-            outcomes = {"H": pct_h, "D": pct_d, "A": pct_a}
-            top_outcome = max(outcomes, key=outcomes.get)
-            top_pct = outcomes[top_outcome]
+            outcomes_r = {"H": pct_h_r, "D": pct_d_r, "A": pct_a_r}
+            top_outcome = max(outcomes_r, key=outcomes_r.get)
+            top_pct = outcomes_r[top_outcome]
             if not is_subscriber:
                 # Pastille verte (.strong/.mid) = un signal en soi, même sans
                 # dire quelle équipe -> reste neutre tant que non connecté.
                 pill_class, pill_text = "open", "🔒 Abonnez-vous"
             elif top_pct >= 55:
-                pill_class, pill_text = "strong", f"Favori net · {top_pct:.0f}%"
+                pill_class, pill_text = "strong", f"Favori net · {top_pct}%"
             elif top_pct >= 40:
-                pill_class, pill_text = "mid", f"Tendance · {top_pct:.0f}%"
+                pill_class, pill_text = "mid", f"Tendance · {top_pct}%"
             else:
-                pill_class, pill_text = "open", f"Match ouvert · {top_pct:.0f}%"
+                pill_class, pill_text = "open", f"Match ouvert · {top_pct}%"
 
             # Couleur = qui mène entre les deux ÉQUIPES (vert = celle qui
             # mène, bleu = l'autre) ; le nul reste toujours gris neutre,
@@ -525,8 +552,8 @@ for match_date in sorted(df["date"].unique()):
                 seg_cls = {k: f"seg-{role[k]}" for k in role}
                 home_cls = "fp-team favored" if leading_team == "H" else "fp-team underdog"
                 away_cls = "fp-team away favored" if leading_team == "A" else "fp-team away underdog"
-                home_pct_html = f'<span class="pct">{pct_h:.0f}%</span>'
-                away_pct_html = f'<span class="pct">{pct_a:.0f}%</span>'
+                home_pct_html = f'<span class="pct">{pct_h_r}%</span>'
+                away_pct_html = f'<span class="pct">{pct_a_r}%</span>'
                 bar_html = f"""
                   <div class="fp-bar-wrap">
                     <div class="fp-bar">
@@ -534,7 +561,7 @@ for match_date in sorted(df["date"].unique()):
                       <div class="{seg_cls['D']}" style="width:{pct_d}%"></div>
                       <div class="{seg_cls['A']}" style="width:{pct_a}%"></div>
                     </div>
-                    <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d:.0f}%</div>
+                    <div class="fp-draw-caption" style="left:{pct_h}%; width:{pct_d}%;">Nul {pct_d_r}%</div>
                   </div>
                 """
             else:
