@@ -34,14 +34,33 @@ def _get_headers():
     return {"X-Auth-Token": token}
 
 
-def _get_with_retry(url, params=None, max_retries=3):
+def _get_with_retry(url, params=None, max_retries=3, max_connection_retries=3):
     """
-    GET avec nouvelle tentative automatique sur 429 (quota API dépassé,
-    10 requêtes/minute en plan gratuit) -> attend le délai indiqué par
-    l'API (en-tête Retry-After), ou 60s par défaut si absent.
+    GET avec deux types de nouvelle tentative automatique :
+    - 429 (quota API dépassé, 10 requêtes/minute en plan gratuit) -> attend
+      le délai indiqué par l'API (en-tête Retry-After), ou 60s par défaut.
+    - erreur réseau/SSL transitoire (ex: SSLEOFError observé le 24/08,
+      2 runs automatiques d'affilée en échec avant que ça reparte tout seul
+      4h plus tard) -> avant, ces erreurs faisaient planter tout le run
+      immédiatement, sans aucune tentative. Backoff court (5s, 15s, 30s),
+      car une coupure réseau se résout généralement en quelques secondes,
+      pas en minutes comme un quota dépassé.
     """
-    for attempt in range(max_retries + 1):
-        resp = requests.get(url, headers=_get_headers(), params=params)
+    connection_attempt = 0
+    quota_attempt = 0
+    while True:
+        try:
+            resp = requests.get(url, headers=_get_headers(), params=params, timeout=30)
+        except requests.exceptions.RequestException as e:
+            connection_attempt += 1
+            if connection_attempt > max_connection_retries:
+                raise
+            wait = [5, 15, 30][connection_attempt - 1]
+            print(f"Erreur réseau ({e.__class__.__name__}) -> nouvelle tentative dans {wait}s "
+                  f"({connection_attempt}/{max_connection_retries})...")
+            time.sleep(wait)
+            continue
+
         if resp.status_code != 429:
             # raise_for_status() seul ne montre que le code HTTP (ex: "400
             # Client Error") -> le corps de la réponse contient le vrai
@@ -51,7 +70,9 @@ def _get_with_retry(url, params=None, max_retries=3):
                 print(f"Réponse API ({resp.status_code}) : {resp.text[:500]}")
             resp.raise_for_status()
             return resp
-        if attempt == max_retries:
+
+        quota_attempt += 1
+        if quota_attempt > max_retries:
             print(f"Réponse API ({resp.status_code}) : {resp.text[:500]}")
             resp.raise_for_status()  # dernière tentative -> on laisse l'erreur remonter
         wait = int(resp.headers.get("Retry-After", 60))
