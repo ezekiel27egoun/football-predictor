@@ -329,20 +329,25 @@ if PAYWALL_ENABLED and not is_subscriber:
         unsafe_allow_html=True,
     )
 
-# --- Jour affiché : "aujourd'hui" par défaut, navigable en arrière ---
+# --- Jour affiché : "aujourd'hui" par défaut, un seul jour à la fois ---
 # today est recalculé à chaque exécution du script (Streamlit relance tout
 # le fichier à chaque interaction/rechargement) -> pas de bascule à minuit à
 # coder : dès qu'une page se recharge après minuit, current_day avance tout
 # seul. On ne garde en session qu'un DÉCALAGE (days_back), jamais une date
-# absolue -> "hier" reste "hier par rapport à maintenant" même si la session
-# survit à un changement de jour, plutôt que de figer une vieille date.
-# Seul le passé est navigable (pour revoir les scores) ; le futur ne l'est
-# plus (le jour affiché par défaut est toujours aujourd'hui).
+# absolue -> "hier"/"demain" restent relatifs à "maintenant" même si la
+# session survit à un changement de jour, plutôt que de figer une vieille
+# date. Le passé est navigable sans limite (pour revoir les scores) ; le
+# futur est plafonné à J+1 (demain), jamais plus loin.
 today = date.today()
 if "days_back" not in st.session_state:
     st.session_state.days_back = 0
 
 min_day = st.session_state.get("fp_start_date") if (PAYWALL_ENABLED and is_subscriber) else None
+max_forward_day = today + timedelta(days=1)
+if PAYWALL_ENABLED and is_subscriber:
+    fp_max = st.session_state.get("fp_expiry_date")
+    if fp_max is not None:
+        max_forward_day = min(max_forward_day, fp_max)
 
 nav_prev, nav_label, nav_next, nav_today = st.columns([1, 4, 1, 1.4])
 with nav_prev:
@@ -351,7 +356,9 @@ with nav_prev:
     if st.button("◀ Jour précédent", use_container_width=True, disabled=at_min):
         st.session_state.days_back += 1
 with nav_next:
-    if st.button("Jour suivant ▶", use_container_width=True, disabled=st.session_state.days_back <= 0):
+    candidate_day = today - timedelta(days=st.session_state.days_back - 1)
+    at_forward_max = candidate_day > max_forward_day
+    if st.button("Jour suivant ▶", use_container_width=True, disabled=at_forward_max):
         st.session_state.days_back -= 1
 with nav_today:
     if st.button("Aujourd'hui", use_container_width=True):
@@ -359,10 +366,14 @@ with nav_today:
 
 current_day = today - timedelta(days=st.session_state.days_back)
 # Garde-fou final (ex: reprise de session après un renouvellement d'abonnement
-# qui a changé fp_start_date) -> ne repose pas que sur "disabled" ci-dessus.
+# qui a changé fp_start_date/fp_expiry_date) -> ne repose pas que sur
+# "disabled" ci-dessus.
 if min_day is not None and current_day < min_day:
     current_day = min_day
     st.session_state.days_back = (today - min_day).days
+if current_day > max_forward_day:
+    current_day = max_forward_day
+    st.session_state.days_back = (today - max_forward_day).days
 
 with nav_label:
     st.markdown(
@@ -395,18 +406,7 @@ if df_wide.empty:
 # automatiquement CET/CEST, pas besoin de gérer le changement d'heure à la main.
 df_wide["kickoff_paris"] = df_wide["kickoff_utc"].dt.tz_convert(ZoneInfo("Europe/Paris"))
 
-# Fenêtre glissante de 2 jours (current_day + le lendemain), pas un seul
-# jour -> "aujourd'hui" montre aussi les matchs de demain, sans attendre
-# minuit. Plafonnée à la date de fin d'abonnement si besoin (un abonné ne
-# doit pas voir un jour au-delà de ce qu'il a payé, même via cette fenêtre).
-window_end = current_day + timedelta(days=1)
-if PAYWALL_ENABLED and is_subscriber:
-    max_day_window = st.session_state.get("fp_expiry_date")
-    if max_day_window is not None:
-        window_end = min(window_end, max_day_window)
-df = df_wide[
-    (df_wide["date"] >= pd.Timestamp(current_day)) & (df_wide["date"] <= pd.Timestamp(window_end))
-]
+df = df_wide[df_wide["date"] == pd.Timestamp(current_day)]
 
 col3, = st.columns([1])
 with col3:
