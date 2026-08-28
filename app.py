@@ -395,7 +395,18 @@ if df_wide.empty:
 # automatiquement CET/CEST, pas besoin de gérer le changement d'heure à la main.
 df_wide["kickoff_paris"] = df_wide["kickoff_utc"].dt.tz_convert(ZoneInfo("Europe/Paris"))
 
-df = df_wide[df_wide["date"] == pd.Timestamp(current_day)]
+# Fenêtre glissante de 2 jours (current_day + le lendemain), pas un seul
+# jour -> "aujourd'hui" montre aussi les matchs de demain, sans attendre
+# minuit. Plafonnée à la date de fin d'abonnement si besoin (un abonné ne
+# doit pas voir un jour au-delà de ce qu'il a payé, même via cette fenêtre).
+window_end = current_day + timedelta(days=1)
+if PAYWALL_ENABLED and is_subscriber:
+    max_day_window = st.session_state.get("fp_expiry_date")
+    if max_day_window is not None:
+        window_end = min(window_end, max_day_window)
+df = df_wide[
+    (df_wide["date"] >= pd.Timestamp(current_day)) & (df_wide["date"] <= pd.Timestamp(window_end))
+]
 
 col3, = st.columns([1])
 with col3:
